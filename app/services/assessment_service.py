@@ -1,4 +1,4 @@
-from db import conn
+from app.db import conn
 
 def get_assessments_by_class(student_class):
     conn.rollback()

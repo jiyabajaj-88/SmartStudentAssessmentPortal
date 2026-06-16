@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
-from schemas import AnswerRequest, AnswerUpdate
-from answers_service import submit_answer, update_answer
-from submission_service import get_submission_by_id
+from app.schemas import AnswerRequest, AnswerUpdate
+from app.services.answers_service import submit_answer, update_answer
+from app.services.submission_service import get_submission_by_id
 from dependencies import get_current_student
 
 router = APIRouter()

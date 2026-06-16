@@ -2,11 +2,14 @@ from fastapi import FastAPI
 
 from fastapi.security import OAuth2PasswordBearer
 
-from router import auth_router, assessments, submissions, answers, results
+from app.router import answers, assessments, auth_router, results
+from app.router import submissions
 
-from schemas import Student
+from app.schemas import Student
+from fastapi.middleware.cors import CORSMiddleware
 
-from student_service import(
+
+from app.services.student_service import(
     get_student_by_id,
     create_student
 )
@@ -38,3 +41,10 @@ def add_student(student: Student):
         student.email, 
         student.school
         )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # tighten this in production
+    allow_methods=["*"],
+    allow_headers=["*"],
+)

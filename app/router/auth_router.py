@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends,HTTPException
-from auth_service import register_student, login_student, get_user_profile
+from app.services.auth_service import register_student, login_student, get_user_profile
 from fastapi.security import OAuth2PasswordRequestForm
 from dependencies import get_current_student  
-from schemas import StudentRegister
+from app.schemas import StudentRegister
 
 router = APIRouter()
 

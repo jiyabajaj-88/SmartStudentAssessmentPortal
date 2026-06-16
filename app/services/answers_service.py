@@ -1,35 +1,15 @@
-from db import conn
+from app.db import conn
 
-def submit_answer(
-    submission_id,
-    question_id,
-    selected_option_id
-):
+def submit_answer(submission_id, question_id, selected_option_id=None, answer_text=None):
     cur = conn.cursor()
-
-    cur.execute(
-        """
-        INSERT INTO submitted_answers
-        (
-            submission_id,
-            question_id,
-            selected_option_id
-        )
-        VALUES (%s, %s, %s)
-        """,
-        (
-            submission_id,
-            question_id,
-            selected_option_id
-        )
-    )
-
+    cur.execute("""
+        INSERT INTO submitted_answers (submission_id, question_id, selected_option_id, answer_text)
+        VALUES (%s, %s, %s, %s)
+        RETURNING answer_id
+    """, (submission_id, question_id, selected_option_id, answer_text))
+    answer_id = cur.fetchone()[0]
     conn.commit()
-
-    return {
-        "message": "Answer submitted successfully"
-    }
-
+    return {"message": "Answer submitted", "answer_id": answer_id}
 
 def update_answer(
     answer_id,

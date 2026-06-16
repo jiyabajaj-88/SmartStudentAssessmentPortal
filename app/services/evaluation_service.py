@@ -1,5 +1,5 @@
-from db import conn
-from results_service import create_result
+from app.db import conn
+from app.services.results_service import create_result
 
 def evaluate_subjective_answers(submission_id):
 

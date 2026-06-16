@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
-from assessment_service import get_assessments_by_class, get_assessment_by_id
-from question_service import get_questions_by_assessment, get_question_by_id
+from app.services.assessment_service import get_assessments_by_class, get_assessment_by_id
+from app.services.question_service import get_questions_by_assessment, get_question_by_id
 from dependencies import get_current_student
 
 router = APIRouter()

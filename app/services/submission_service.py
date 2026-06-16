@@ -1,4 +1,4 @@
-from db import conn
+from app.db import conn
 
 def create_submission(student_id, assessment_id):
        conn.rollback()

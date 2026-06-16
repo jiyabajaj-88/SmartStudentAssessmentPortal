@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from results_service import get_student_results, get_results_by_assessment
+from app.services.results_service import get_student_results, get_results_by_assessment
 from dependencies import get_current_student
 
 router = APIRouter()

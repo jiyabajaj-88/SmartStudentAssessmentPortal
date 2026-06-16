@@ -1,4 +1,4 @@
-from db import conn
+from app.db import conn
 
 def get_student_by_id(student_id):
     conn.rollback()

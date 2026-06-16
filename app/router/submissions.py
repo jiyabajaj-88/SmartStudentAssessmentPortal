@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
-from submission_service import create_submission, get_submission_by_id
-from evaluation_service import evaluate_submission
+from app.services.submission_service import create_submission, get_submission_by_id
+from app.services.evaluation_service import evaluate_submission
 from dependencies import get_current_student
-from answers_service import get_answers_by_submission
+from app.services.answers_service import get_answers_by_submission
 
 router = APIRouter()
 

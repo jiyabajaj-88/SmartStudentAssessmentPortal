@@ -1,7 +1,7 @@
-from db import conn
+from app.db import conn
 
 from passlib.context import CryptContext
-from auth import create_access_token
+from app.auth import create_access_token
 
 
 
