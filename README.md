@@ -21,6 +21,54 @@ Authentication: JWT (JSON Web Tokens)
 Password Hashing: bcrypt via passlib
 ORM: Raw SQL via psycopg2
 
+## Setup
+
+1. Create your local environment file:
+
+```bash
+cp .env.example .env
+```
+
+2. Update `.env` with your PostgreSQL username, password, database name, and JWT secret.
+
+3. Install dependencies and initialize the database:
+
+```bash
+make setup
+```
+
+4. Run the FastAPI server:
+
+```bash
+make run
+```
+
+The API will be available at:
+
+```txt
+http://127.0.0.1:8000
+```
+
+Swagger docs:
+
+```txt
+http://127.0.0.1:8000/docs
+```
+
+## Make Commands
+
+```bash
+make help       # show available commands
+make setup      # create venv, install dependencies, create DB, apply schema
+make install    # install dependencies
+make run        # run FastAPI server
+make db-create  # create PostgreSQL database
+make db-init    # apply schema.sql
+make db-reset   # drop, recreate, and initialize database
+make check      # compile Python files
+make clean      # remove Python cache files
+```
+
 ## Authentication
 
 This API uses JWT Bearer tokens. To access protected endpoints:
