@@ -1,99 +1,55 @@
 from app.db import conn
 from app.services.results_service import create_result
-
+import psycopg2
+from  psycopg2.extras import RealDictCursor
 def evaluate_subjective_answers(submission_id):
 
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
 
-    cur.execute(
-        """
-        SELECT
-            sa.answer_id,
-            sa.answer_text,
-            q.marks
-        FROM submitted_answers sa
-        JOIN questions q
-            ON sa.question_id = q.question_id
-        WHERE sa.submission_id = %s
-        AND q.question_type = 'subjective'
-        """,
-        (submission_id,)
-    )
-
-    answers = cur.fetchall()
-
-    for answer in answers:
-
-        answer_id = answer[0]
-        answer_text = answer[1]
-        max_marks = answer[2]
-
-        word_count = len(answer_text.split())
-
-        if word_count >= 20:
-
-            marks = max_marks
-            feedback = "Good explanation"
-
-        elif word_count >= 10:
-
-            marks = max_marks // 2
-            feedback = "Average explanation"
-
-        else:
-
-            marks = 0
-            feedback = "Answer too short"
-
+    try:
         cur.execute(
             """
-            UPDATE submitted_answers
-            SET marks_awarded = %s,
-                feedback = %s
-            WHERE answer_id = %s
+            SELECT
+                sa.answer_id,
+                sa.answer_text,
+                q.marks
+            FROM submitted_answers sa
+            JOIN questions q
+                ON sa.question_id = q.question_id
+            WHERE sa.submission_id = %s
+            AND q.question_type = 'subjective'
             """,
-            (
-                marks,
-                feedback,
-                answer_id
-            )
+            (submission_id,)
         )
 
-    conn.commit()
+        answers = cur.fetchall()
 
-def evaluate_objective_answers(submission_id):
+        for answer in answers:
 
-    cur = conn.cursor()
+            answer_id = answer["answer_id"]
+            answer_text = answer["answer_text"]
+            max_marks = answer["marks"]
 
-    cur.execute(
-        """
-        SELECT
-            sa.answer_id,
-            sa.selected_option_id,
-            o.option_id,
-            q.marks
-        FROM submitted_answers sa
-        JOIN questions q
-            ON sa.question_id = q.question_id
-        JOIN options o
-            ON q.question_id = o.question_id
-        WHERE sa.submission_id = %s
-        AND q.question_type = 'objective'
-        AND o.is_correct = TRUE
-        """,
-        (submission_id,)
-    )
+            if not answer_text:
+                marks = 0
+                feedback = "Answer too short"
+            else:
+                word_count = len(answer_text.split())
 
-    answers = cur.fetchall()
+                if word_count >= 20:
 
-    for answer in answers:
+                    marks = max_marks
+                    feedback = "Good explanation"
 
-        answer_id = answer[0]
-        selected_option_id = answer[1]
-        correct_option_id = answer[2]
-        question_marks = answer[3]
+                elif word_count >= 10:
 
-        if selected_option_id == correct_option_id:
+                    marks = max_marks // 2
+                    feedback = "Average explanation"
+
+                else:
+
+                    marks = 0
+                    feedback = "Answer too short"
 
             cur.execute(
                 """
@@ -103,68 +59,129 @@ def evaluate_objective_answers(submission_id):
                 WHERE answer_id = %s
                 """,
                 (
-                    question_marks,
-                    "Correct Answer",
+                    marks,
+                    feedback,
                     answer_id
                 )
             )
 
-        else:
+        conn.commit()
+    finally:
+        cur.close()
 
-            cur.execute(
-                """
-                UPDATE submitted_answers
-                SET marks_awarded = 0,
-                    feedback = %s
-                WHERE answer_id = %s
-                """,
-                (
-                    "Incorrect Answer",
-                    answer_id
+def evaluate_objective_answers(submission_id):
+
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    try:
+        cur.execute(
+            """
+            SELECT
+                sa.answer_id,
+                sa.selected_option_id,
+                o.option_id,
+                q.marks
+            FROM submitted_answers sa
+            JOIN questions q
+                ON sa.question_id = q.question_id
+            JOIN options o
+                ON q.question_id = o.question_id
+            WHERE sa.submission_id = %s
+            AND q.question_type = 'objective'
+            AND o.is_correct = TRUE
+            """,
+            (submission_id,)
+        )
+
+        answers = cur.fetchall()
+
+        for answer in answers:
+
+            answer_id = answer["answer_id"]
+            selected_option_id = answer["selected_option_id"]
+            correct_option_id = answer["option_id"]
+            question_marks = answer["marks"]
+
+            if selected_option_id == correct_option_id:
+
+                cur.execute(
+                    """
+                    UPDATE submitted_answers
+                    SET marks_awarded = %s,
+                        feedback = %s
+                    WHERE answer_id = %s
+                    """,
+                    (
+                        question_marks,
+                        "Correct Answer",
+                        answer_id
+                    )
                 )
-            )
 
-    conn.commit()
+            else:
+
+                cur.execute(
+                    """
+                    UPDATE submitted_answers
+                    SET marks_awarded = 0,
+                        feedback = %s
+                    WHERE answer_id = %s
+                    """,
+                    (
+                        "Incorrect Answer",
+                        answer_id
+                    )
+                )
+
+        conn.commit()
+    finally:
+        cur.close()
 
 def calculate_total_marks(submission_id):
 
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
 
-    cur.execute(
-        """
-        SELECT COALESCE(
-            SUM(marks_awarded),
-            0
+    try:
+        cur.execute(
+            """
+            SELECT COALESCE(
+                SUM(marks_awarded),
+                0
+            ) AS total_marks
+            FROM submitted_answers
+            WHERE submission_id = %s
+            """,
+            (submission_id,)
         )
-        FROM submitted_answers
-        WHERE submission_id = %s
-        """,
-        (submission_id,)
-    )
 
-    total_marks = cur.fetchone()[0]
+        total_marks = cur.fetchone()["total_marks"]
 
-    return total_marks
+        return total_marks
+    finally:
+        cur.close()
 
 
 def get_max_marks(submission_id):
 
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
 
-    cur.execute(
-        """
-        SELECT a.max_marks
-        FROM submissions s
-        JOIN assessments a
-            ON s.assessment_id = a.assessment_id
-        WHERE s.submission_id = %s
-        """,
-        (submission_id,)
-    )
+    try:
+        cur.execute(
+            """
+            SELECT a.max_marks
+            FROM submissions s
+            JOIN assessments a
+                ON s.assessment_id = a.assessment_id
+            WHERE s.submission_id = %s
+            """,
+            (submission_id,)
+        )
 
-    max_marks = cur.fetchone()[0]
+        max_marks = cur.fetchone()["max_marks"]
 
-    return max_marks
+        return max_marks
+    finally:
+        cur.close()
 
 def generate_overall_feedback(
     total_marks,
@@ -222,22 +239,25 @@ def evaluate_submission(submission_id):
         feedback
     )
 
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
 
-    cur.execute(
-        """
-        UPDATE submissions
-        SET status = 'Evaluated'
-        WHERE submission_id = %s
-        """,
-        (submission_id,)
-    )
+    try:
+        cur.execute(
+            """
+            UPDATE submissions
+            SET status = 'Evaluated'
+            WHERE submission_id = %s
+            """,
+            (submission_id,)
+        )
 
-    conn.commit()
+        conn.commit()
+    finally:
+        cur.close()
 
     return {
         "submission_id": submission_id,
         "total_marks": total_marks,
         "max_marks": max_marks,
-        "feedback": feedback
+        "overall_feedback": feedback,  # renamed from "feedback" to match ResultResponse schema
     }

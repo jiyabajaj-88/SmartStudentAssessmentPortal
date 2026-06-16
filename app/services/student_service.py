@@ -1,8 +1,9 @@
 from app.db import conn
-
+import psycopg2
+from  psycopg2.extras import RealDictCursor
 def get_student_by_id(student_id):
     conn.rollback()
-    cur=conn.cursor()
+    cur=conn.cursor(cursor_factory=RealDictCursor)
 
     cur.execute(
         """SELECT student_id, name, email, student_class, school
@@ -16,7 +17,7 @@ def get_student_by_id(student_id):
 
 def create_student(name, student_class, email, school):
     conn.rollback()
-    cur=conn.cursor()   
+    cur=conn.cursor(cursor_factory=RealDictCursor)   
 
     cur.execute(
         """INSERT INTO students (name, student_class, email, school)    

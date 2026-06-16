@@ -3,11 +3,13 @@ from app.db import conn
 from passlib.context import CryptContext
 from app.auth import create_access_token
 
-
+import psycopg2
+from  psycopg2.extras import RealDictCursor
 
 
 def register_student(student):
-    cur = conn.cursor()
+    conn.rollback()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute(
         """SELECT student_id FROM students WHERE email = %s""",
         (student.email,)
@@ -16,7 +18,7 @@ def register_student(student):
 
     if existing_student:
         cur.close()
-        return None, "Email already registered"  # (result, error)
+        return None, "Email already registered"  
 
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
     hashed_password = pwd_context.hash(student.password)
@@ -33,7 +35,7 @@ def register_student(student):
     return {"message": "Student registered successfully"}, None  # (result, error)
 
 def login_student(email, password):
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
 
     cur.execute(
         """
@@ -52,14 +54,14 @@ def login_student(email, password):
 
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-    if not pwd_context.verify(password, student[3]):
+    if not pwd_context.verify(password, student["password"]):
         cur.close()
         return None, "Invalid password"  
 
     access_token = create_access_token({
-        "student_id": student[0],
-        "email": student[2],
-        "student_class": student[4]
+        "student_id": student["student_id"],
+        "email": student["email"],
+        "student_class": student["student_class"]
     })
 
     cur.close()
@@ -68,7 +70,7 @@ def login_student(email, password):
 
 def get_user_profile(student_id):
 
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
 
     cur.execute(
         """
@@ -94,9 +96,9 @@ def get_user_profile(student_id):
         }
 
     return {
-        "student_id": student[0],
-        "name": student[1],
-        "email": student[2],
-        "student_class": student[3],
-        "school": student[4]
+        "student_id": student["student_id"],
+        "name": student["name"],
+        "email": student["email"],
+        "student_class": student["student_class"],
+        "school": student["school"]
     }

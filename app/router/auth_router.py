@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends,HTTPException
 from app.services.auth_service import register_student, login_student, get_user_profile
 from fastapi.security import OAuth2PasswordRequestForm
 from dependencies import get_current_student  
-from app.schemas import StudentRegister
+from app.schemas import StudentRegister,StudentResponse
 
 router = APIRouter()
 
@@ -22,7 +22,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
         raise HTTPException(status_code=401, detail=error)
     return result
 
-@router.get("/profile")
+@router.get("/profile",response_model=StudentResponse)
 def get_profile(current_student=Depends(get_current_student)):
     student = get_user_profile(current_student["student_id"])
     if not student:

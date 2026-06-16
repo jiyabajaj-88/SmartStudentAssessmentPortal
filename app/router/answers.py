@@ -3,10 +3,10 @@ from app.schemas import AnswerRequest, AnswerUpdate
 from app.services.answers_service import submit_answer, update_answer
 from app.services.submission_service import get_submission_by_id
 from dependencies import get_current_student
-
+from app.schemas import MessageResponse
 router = APIRouter()
 
-@router.post("/submissions/{submission_id}/answers")
+@router.post("/submissions/{submission_id}/answers",response_model=MessageResponse)
 def submit_answers(
     submission_id: int,
     answers: list[AnswerRequest],
@@ -19,7 +19,7 @@ def submit_answers(
             detail="Error 404: Submission not found"
             )
     
-    if submission[1] != current_student["student_id"]:
+    if submission["student_id"] != current_student["student_id"]:
         raise HTTPException(
             status_code=403, 
             detail="Error 403: You are not authorized to submit answers for this submission"
@@ -29,12 +29,13 @@ def submit_answers(
         submit_answer(
             submission_id,
             answer.question_id,
-            answer.selected_option_id
+            answer.selected_option_id,
+            answer.answer_text,
         )
     
     return {"message": "status 200: Answers submitted successfully"}
 
-@router.put("/answers/{answer_id}")
+@router.put("/answers/{answer_id}", response_model=MessageResponse)
 def update_answer_api(
     answer_id: int,
     answer: AnswerUpdate,

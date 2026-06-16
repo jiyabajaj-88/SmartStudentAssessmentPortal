@@ -1,5 +1,6 @@
 from app.db import conn
-
+import psycopg2
+from  psycopg2.extras import RealDictCursor
 
 def create_result(
     submission_id,
@@ -7,65 +8,76 @@ def create_result(
     max_marks,
     overall_feedback
 ):
+    conn.rollback()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
 
-    cur = conn.cursor()
-
-    cur.execute(
-        """
-        INSERT INTO results
-        (
-            submission_id,
-            total_marks,
-            max_marks,
-            overall_feedback
+    try:
+        cur.execute(
+            """
+            INSERT INTO results
+            (
+                submission_id,
+                total_marks,
+                max_marks,
+                overall_feedback
+            )
+            VALUES
+            (
+                %s,
+                %s,
+                %s,
+                %s
+            )
+            """,
+            (
+                submission_id,
+                total_marks,
+                max_marks,
+                overall_feedback
+            )
         )
-        VALUES
-        (
-            %s,
-            %s,
-            %s,
-            %s
-        )
-        """,
-        (
-            submission_id,
-            total_marks,
-            max_marks,
-            overall_feedback
-        )
-    )
 
-    conn.commit()
+        conn.commit()
 
-    return {
-        "message": "Result created successfully"
-    }
+        return {
+            "message": "Result created successfully"
+        }
+    finally:
+        cur.close()
 
 
 def get_student_results(student_id):
-    cur = conn.cursor()
+    conn.rollback()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
 
-    cur.execute(
-        """SELECT r.result_id, r.submission_id, r.total_marks, r.max_marks, r.overall_feedback
-        FROM results r
-        JOIN submissions s ON r.submission_id = s.submission_id
-        WHERE s.student_id = %s
-        """,
-        (student_id,)
-    )
+    try:
+        cur.execute(
+            """SELECT r.result_id, r.submission_id, r.total_marks, r.max_marks, r.overall_feedback
+            FROM results r
+            JOIN submissions s ON r.submission_id = s.submission_id
+            WHERE s.student_id = %s
+            """,
+            (student_id,)
+        )
 
-    return cur.fetchall()
+        return cur.fetchall()
+    finally:
+        cur.close()
      
 def get_results_by_assessment(student_id, assessment_id):
-    cur = conn.cursor()
+    conn.rollback()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
 
-    cur.execute(
-        """SELECT r.result_id, r.submission_id, r.total_marks, r.max_marks, r.overall_feedback
-        FROM results r
-        JOIN submissions s ON r.submission_id = s.submission_id
-        WHERE s.student_id = %s AND s.assessment_id = %s
-        """,
-        (student_id, assessment_id)
-    )
+    try:
+        cur.execute(
+            """SELECT r.result_id, r.submission_id, r.total_marks, r.max_marks, r.overall_feedback
+            FROM results r
+            JOIN submissions s ON r.submission_id = s.submission_id
+            WHERE s.student_id = %s AND s.assessment_id = %s
+            """,
+            (student_id, assessment_id)
+        )
 
-    return cur.fetchall()
+        return cur.fetchall()
+    finally:
+        cur.close()

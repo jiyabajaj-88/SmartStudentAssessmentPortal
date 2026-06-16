@@ -1,7 +1,7 @@
-PYTHON ?= python3
+PYTHON ?= python
 VENV ?= .venv
-PIP := $(VENV)/bin/pip
-UVICORN := $(VENV)/bin/uvicorn
+PIP := $(VENV)/Scripts/pip.exe
+UVICORN := $(VENV)/Scripts/uvicorn.exe
 
 -include .env
 export
@@ -36,7 +36,7 @@ install: venv
 	$(PIP) install -r requirements.txt
 
 run:
-	$(UVICORN) main:app --reload --host 127.0.0.1 --port 8000
+	$(UVICORN) app.main:app --reload --host 127.0.0.1 --port 8000
 
 db-create:
 	@if ! psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$(DB_NAME)'" | grep -q 1; then \
@@ -46,7 +46,7 @@ db-create:
 	fi
 
 db-init:
-	psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f schema.sql
+	psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f tests/schema.sql
 
 db-drop:
 	dropdb --if-exists -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) $(DB_NAME)
@@ -54,7 +54,7 @@ db-drop:
 db-reset: db-drop db-create db-init
 
 check:
-	$(PYTHON) -m py_compile main.py auth.py db.py auth_service.py student_service.py assessment_service.py question_service.py submission_service.py answers_service.py evaluation_service.py results_service.py schemas.py dependencies.py router/*.py
+	$(PYTHON) -m compileall app dependencies.py
 
 clean:
 	find . -type d -name "__pycache__" -prune -exec rm -rf {} +
