@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Feedback – SmartPortal</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<nav></nav>
+
+<div class="page">
+  <div style="margin-bottom:1.5rem">
+    <a href="results.html" class="btn btn-secondary btn-sm">← Back to Results</a>
+  </div>
+  <div id="alertBox"></div>
+  <div id="feedbackContent"></div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw '';
+  renderNav('results.html');
+
+  const params = new URLSearchParams(window.location.search);
+  const submissionId = params.get('submission_id');
+
+  if (!submissionId) {
+    document.getElementById('alertBox').innerHTML =
+      '<div class="alert alert-error">No submission specified. <a href="results.html">Go to Results</a></div>';
+  } else {
+    loadFeedback();
+  }
+
+  async function loadFeedback() {
+    const el = document.getElementById('feedbackContent');
+    showLoading(el);
+    try {
+      // Load submission, answers, and result in parallel
+      const [submission, answers, results] = await Promise.all([
+        apiFetch(`/submissions/${submissionId}`),
+        apiFetch(`/submissions/${submissionId}/answers`),
+        apiFetch('/results'),
+      ]);
+
+      const result = results?.find(r => r.submission_id == submissionId);
+
+      if (!submission) { showEmpty(el, '❌', 'Submission not found.'); return; }
+
+      // Load assessment + questions for context
+      const [assessment, questions] = await Promise.all([
+        apiFetch(`/assessments/${submission.assessment_id}`),
+        apiFetch(`/assessments/${submission.assessment_id}/questions`),
+      ]);
+
+      renderFeedback(submission, answers, result, assessment, questions);
+    } catch (e) {
+      showAlert(document.getElementById('alertBox'), 'error', 'Could not load feedback: ' + (e.detail || e));
+      el.innerHTML = '';
+    }
+  }
+
+  function renderFeedback(submission, answers, result, assessment, questions) {
+    const el = document.getElementById('feedbackContent');
+    const pct = result ? Math.round((result.total_marks / result.max_marks) * 100) : null;
+
+    // Build question map
+    const qMap = {};
+    (questions || []).forEach(q => { qMap[q.question_id] = q; });
+
+    // Build options map: option_id -> option_text (from questions)
+    const optMap = {};
+    (questions || []).forEach(q => {
+      (q.options || []).forEach(o => { optMap[o.option_id] = o.option_text; });
+    });
+
+    el.innerHTML = `
+      <!-- Header card -->
+      <div class="card" style="margin-bottom:1.5rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem">
+          <div>
+            <h1 style="font-family:'Space Grotesk',sans-serif;font-size:1.4rem;font-weight:700;margin-bottom:.35rem">
+              ${assessment?.title || 'Assessment'}
+            </h1>
+            <div class="meta-row">
+              <span class="badge">${assessment?.subject || '—'}</span>
+              <span class="badge">Submission #${submission.submission_id}</span>
+              <span class="badge ${submission.status === 'Evaluated' ? 'success' : ''}">${submission.status}</span>
+            </div>
+          </div>
+          ${pct !== null ? buildRing(pct) : ''}
+        </div>
+
+        ${result ? `
+        <div class="stats-row" style="margin-top:1.25rem;margin-bottom:0">
+          <div class="stat-card">
+            <div class="label">Marks Earned</div>
+            <div class="value accent">${result.total_marks}</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Total Marks</div>
+            <div class="value">${result.max_marks}</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Percentage</div>
+            <div class="value ${pct >= 75 ? 'success' : pct < 50 ? '' : 'accent'}">${pct}%</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Overall</div>
+            <div class="value" style="font-size:1rem">${result.overall_feedback || '—'}</div>
+          </div>
+        </div>
+        <div class="progress-wrap mt-2">
+          <div class="progress-bar ${pct>=75?'success':pct<50?'danger':''}" style="width:${pct}%"></div>
+        </div>
+        ` : `<div class="alert alert-info mt-2">This submission hasn't been evaluated yet.</div>`}
+      </div>
+
+      <!-- Answers & feedback -->
+      <div class="page-header" style="margin-bottom:1rem">
+        <h2 style="font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:600">
+          Answer Review (${answers?.length || 0} answers)
+        </h2>
+      </div>
+
+      ${(answers || []).length === 0
+        ? '<div class="empty"><div class="empty-icon">📄</div><p>No answers found for this submission.</p></div>'
+        : (answers || []).map((a, i) => {
+            const q = qMap[a.question_id];
+            const isObj = q?.question_type === 'objective';
+            const selectedText = a.selected_option_id ? (optMap[a.selected_option_id] || `Option #${a.selected_option_id}`) : null;
+
+            return `
+              <div class="question-card" style="margin-bottom:.75rem">
+                <div class="q-num">Q${i+1} · ${q?.question_type || 'unknown'} · ${q?.marks || '?'} marks</div>
+                <div class="q-text">${q?.question_text || `Question #${a.question_id}`}</div>
+
+                ${isObj && q?.options?.length ? `
+                  <div style="margin-top:.75rem">
+                    ${q.options.map(o => {
+                      const isSelected = o.option_id === a.selected_option_id;
+                      return `<div class="option-label ${isSelected ? 'selected' : ''}" style="cursor:default;${isSelected?'':'opacity:.6'}">
+                        <span style="font-size:.9rem">${isSelected ? '●' : '○'}</span>
+                        ${o.option_text}
+                        ${isSelected ? '<span class="badge info" style="margin-left:auto">Your answer</span>' : ''}
+                      </div>`;
+                    }).join('')}
+                  </div>
+                ` : ''}
+
+                ${!isObj && a.answer_text ? `
+                  <div class="feedback-item" style="margin-top:.75rem">
+                    <div class="answer" style="white-space:pre-wrap">${a.answer_text}</div>
+                  </div>
+                ` : ''}
+                ${!isObj && !a.answer_text ? `
+                  <p class="text-muted text-sm" style="margin-top:.5rem">No answer provided.</p>
+                ` : ''}
+              </div>`;
+          }).join('')}
+    `;
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile – SmartPortal</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<nav></nav>
+
+<div class="page" style="max-width:600px">
+  <div class="page-header">
+    <h1>My Profile</h1>
+    <p>Your account information.</p>
+  </div>
+  <div id="profileContent"></div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw '';
+  renderNav('');
+
+  async function loadProfile() {
+    const el = document.getElementById('profileContent');
+    showLoading(el);
+    try {
+      const student = await apiFetch('/profile');
+      saveStudent(student);
+
+      const initials = student.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+
+      el.innerHTML = `
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:1.25rem;margin-bottom:1.75rem">
+            <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));
+                display:flex;align-items:center;justify-content:center;
+                font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.4rem;color:#000">
+              ${initials}
+            </div>
+            <div>
+              <h2 style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.2rem">${student.name}</h2>
+              <p class="text-muted text-sm">${student.email}</p>
+            </div>
+          </div>
+
+          <div style="display:grid;gap:1rem">
+            ${field('Student ID', '#' + student.student_id)}
+            ${field('Email', student.email)}
+            ${field('Class', student.student_class)}
+            ${field('School', student.school)}
+          </div>
+
+          <div style="margin-top:1.75rem;padding-top:1.5rem;border-top:1px solid var(--border)">
+            <button class="btn btn-danger btn-sm" onclick="logout()">Sign out</button>
+          </div>
+        </div>
+      `;
+    } catch (e) {
+      showAlert(el, 'error', 'Could not load profile: ' + (e.detail || e));
+    }
+  }
+
+  function field(label, value) {
+    return `
+      <div style="display:flex;justify-content:space-between;padding:.75rem;background:var(--surface2);border-radius:6px">
+        <span class="text-muted text-sm" style="font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:.75rem">${label}</span>
+        <span class="text-sm">${value}</span>
+      </div>`;
+  }
+
+  loadProfile();
+</script>
+</body>
+</html>

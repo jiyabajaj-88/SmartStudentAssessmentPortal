@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assessments – SmartPortal</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<nav></nav>
+
+<div class="page">
+  <div class="page-header">
+    <h1>Assessments</h1>
+    <p>All assessments available for your class.</p>
+  </div>
+
+  <div id="assessList"></div>
+</div>
+
+<!-- TAKE ASSESSMENT MODAL -->
+<div class="modal-overlay" id="assessModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">Assessment</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="modalAlert"></div>
+      <div id="modalContent"></div>
+      <div id="modalFooter" class="mt-3 flex-between"></div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw '';
+  renderNav('assessments.html');
+
+  let currentAssessment = null;
+  let currentSubmission = null;
+  let questions = [];
+  let answers = {};  // question_id -> { selected_option_id?, answer_text? }
+
+  async function loadAssessments() {
+    const el = document.getElementById('assessList');
+    showLoading(el);
+    try {
+      const data = await apiFetch('/assessments');
+      if (!data?.length) { showEmpty(el, '📝', 'No assessments available for your class right now.'); return; }
+      el.innerHTML = `<div class="card-grid">${data.map(a => `
+        <div class="assessment-card" onclick="openAssessment(${a.assessment_id})">
+          <h3>${a.title}</h3>
+          <p class="text-muted text-sm mt-1">${a.subject}</p>
+          <div class="meta-row">
+            <span class="badge">Class ${a.class_name}</span>
+            <span class="badge accent">${a.max_marks} marks</span>
+          </div>
+        </div>
+      `).join('')}</div>`;
+    } catch (e) {
+      showAlert(document.getElementById('assessList'), 'error', 'Could not load assessments: ' + (e.detail || e));
+    }
+  }
+
+  async function openAssessment(id) {
+    currentAssessment = id;
+    answers = {};
+    document.getElementById('assessModal').classList.add('show');
+
+    const mc = document.getElementById('modalContent');
+    const mf = document.getElementById('modalFooter');
+    const ma = document.getElementById('modalAlert');
+    ma.innerHTML = '';
+    showLoading(mc);
+    mf.innerHTML = '';
+
+    try {
+      const [assessment, qs] = await Promise.all([
+        apiFetch(`/assessments/${id}`),
+        apiFetch(`/assessments/${id}/questions`),
+      ]);
+      questions = qs || [];
+      document.getElementById('modalTitle').textContent = assessment.title;
+
+      mc.innerHTML = `
+        <div style="margin-bottom:1.25rem">
+          <div class="meta-row">
+            <span class="badge">${assessment.subject}</span>
+            <span class="badge info">${assessment.max_marks} marks total</span>
+            <span class="badge">${questions.length} questions</span>
+          </div>
+        </div>
+        ${questions.map((q, i) => renderQuestion(q, i)).join('')}
+      `;
+
+      mf.innerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="startAndSubmit(${id})">Start &amp; Submit</button>
+      `;
+    } catch (e) {
+      showAlert(mc, 'error', 'Could not load assessment: ' + (e.detail || e));
+    }
+  }
+
+  function renderQuestion(q, i) {
+    const isObj = q.question_type === 'objective' && q.options?.length;
+    const opts = isObj
+      ? q.options.map(o => `
+          <label class="option-label" id="opt-label-${o.option_id}">
+            <input type="radio" name="q${q.question_id}" value="${o.option_id}"
+              onchange="selectOption(${q.question_id}, ${o.option_id}, 'opt-label-${o.option_id}', 'q${q.question_id}')">
+            ${o.option_text}
+            <span class="marks-badge">${q.marks} mk</span>
+          </label>`).join('')
+      : `<textarea rows="3" placeholder="Write your answer here…"
+           oninput="answers['${q.question_id}'] = { answer_text: this.value }"
+           style="font-size:.875rem"></textarea>`;
+
+    return `
+      <div class="question-card">
+        <div class="q-num">Q${i + 1} · ${q.question_type}</div>
+        <div class="q-text">${q.question_text}</div>
+        ${opts}
+      </div>`;
+  }
+
+  function selectOption(qid, oid, labelId, name) {
+    answers[qid] = { selected_option_id: oid };
+    document.querySelectorAll(`input[name="${name}"]`).forEach(r => {
+      r.closest('.option-label')?.classList.remove('selected');
+    });
+    document.getElementById(labelId)?.classList.add('selected');
+  }
+
+  async function startAndSubmit(assessmentId) {
+    const ma = document.getElementById('modalAlert');
+    const mf = document.getElementById('modalFooter');
+    ma.innerHTML = '';
+
+    try {
+      // 1. Create submission
+      const sub = await apiFetch(`/submissions?assessment_id=${assessmentId}`, { method: 'POST' });
+      currentSubmission = sub.submission_id;
+
+      // 2. Build answers payload
+      const payload = questions.map(q => {
+        const a = answers[q.question_id] || {};
+        return { question_id: q.question_id, ...a };
+      });
+
+      // 3. Submit answers
+      await apiFetch(`/submissions/${currentSubmission}/answers`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      // 4. Evaluate
+      const result = await apiFetch(`/submissions/${currentSubmission}/evaluate`, { method: 'POST' });
+
+      closeModal();
+      window.location.href = `feedback.html?submission_id=${currentSubmission}`;
+    } catch (e) {
+      showAlert(ma, 'error', 'Submission failed: ' + (e.detail || JSON.stringify(e)));
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('assessModal').classList.remove('show');
+    currentAssessment = null;
+    currentSubmission = null;
+  }
+
+  loadAssessments();
+</script>
+</body>
+</html>

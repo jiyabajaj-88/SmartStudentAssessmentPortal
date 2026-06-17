@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Submissions – SmartPortal</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<nav></nav>
+
+<div class="page">
+  <div class="page-header">
+    <h1>My Submissions</h1>
+    <p>All assessments you have submitted.</p>
+  </div>
+  <div id="alertBox"></div>
+  <div class="card" style="padding:0; overflow:hidden;">
+    <div id="subsContent"></div>
+  </div>
+</div>
+
+
+<div class="modal-overlay" id="answersModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Submitted Answers</h2>
+      <button class="modal-close" onclick="closeAnswers()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="answersContent"></div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw '';
+  renderNav('submissions.html');
+
+  
+  async function loadSubmissions() {
+    const el = document.getElementById('subsContent');
+    showLoading(el);
+    try {
+      const results = await apiFetch('/results');
+      if (!results?.length) {
+        showEmpty(el, '📋', 'No submissions yet. Go take an assessment!');
+        return;
+      }
+
+      
+      const subIds = [...new Set(results.map(r => r.submission_id))];
+      const submissions = await Promise.all(
+        subIds.map(id => apiFetch(`/submissions/${id}`).catch(() => null))
+      );
+      const validSubs = submissions.filter(Boolean);
+      if (!validSubs.length) { showEmpty(el, '📋', 'No submissions found.'); return; }
+
+      
+      const resultMap = {};
+      results.forEach(r => { resultMap[r.submission_id] = r; });
+
+      renderTable(validSubs, resultMap);
+    } catch (e) {
+      showAlert(document.getElementById('alertBox'), 'error', 'Could not load submissions: ' + (e.detail || e));
+      el.innerHTML = '';
+    }
+  }
+
+  function renderTable(subs, resultMap) {
+    const el = document.getElementById('subsContent');
+    el.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Submission</th>
+            <th>Assessment</th>
+            <th>Status</th>
+            <th>Submitted</th>
+            <th>Score</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${subs.map(s => {
+            const r = resultMap[s.submission_id];
+            const pct = r ? Math.round((r.total_marks / r.max_marks) * 100) : null;
+            const statusBadge = s.status === 'Evaluated'
+              ? `<span class="badge success">${s.status}</span>`
+              : `<span class="badge">${s.status}</span>`;
+            const scoreHtml = pct !== null
+              ? `<div style="display:flex;align-items:center;gap:.5rem">
+                  <div class="progress-wrap" style="width:70px">
+                    <div class="progress-bar ${pct>=75?'success':pct<50?'danger':''}" style="width:${pct}%"></div>
+                  </div>
+                  <span class="text-sm">${pct}%</span>
+                </div>`
+              : '<span class="text-muted text-sm">Pending</span>';
+
+            return `
+              <tr>
+                <td><span class="font-mono">#${s.submission_id}</span></td>
+                <td class="text-sm">Assessment #${s.assessment_id}</td>
+                <td>${statusBadge}</td>
+                <td class="text-muted text-sm">${formatDate(s.submitted_at)}</td>
+                <td>${scoreHtml}</td>
+                <td>
+                  <div style="display:flex;gap:.4rem">
+                    <button class="btn btn-secondary btn-sm" onclick="viewAnswers(${s.submission_id})">Answers</button>
+                    ${r ? `<a href="feedback.html?submission_id=${s.submission_id}" class="btn btn-primary btn-sm">Feedback</a>` : ''}
+                  </div>
+                </td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  async function viewAnswers(submissionId) {
+    const el = document.getElementById('answersContent');
+    document.getElementById('answersModal').classList.add('show');
+    showLoading(el);
+    try {
+      const answers = await apiFetch(`/submissions/${submissionId}/answers`);
+      if (!answers?.length) { showEmpty(el, '📄', 'No answers found.'); return; }
+      el.innerHTML = answers.map(a => `
+        <div class="feedback-item">
+          <div class="answer">Question ID: <strong>${a.question_id}</strong></div>
+          ${a.selected_option_id != null
+            ? `<div class="answer">Selected option ID: <strong>${a.selected_option_id}</strong></div>`
+            : `<div class="answer text-muted">Subjective answer (see feedback for details)</div>`
+          }
+        </div>
+      `).join('');
+    } catch (e) {
+      showAlert(el, 'error', 'Could not load answers: ' + (e.detail || e));
+    }
+  }
+
+  function closeAnswers() {
+    document.getElementById('answersModal').classList.remove('show');
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+  }
+
+  loadSubmissions();
+</script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard – SmartPortal</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<nav></nav>
+
+<div class="page">
+  <div class="page-header">
+    <h1 id="greeting">Welcome back</h1>
+    <p id="subtext">Here's a snapshot of your activity.</p>
+  </div>
+
+  <div class="stats-row" id="statsRow">
+    <div class="stat-card"><div class="label">Assessments</div><div class="value accent" id="statAssess">—</div></div>
+    <div class="stat-card"><div class="label">Submissions</div><div class="value" id="statSubs">—</div></div>
+    <div class="stat-card"><div class="label">Results</div><div class="value" id="statResults">—</div></div>
+    <div class="stat-card"><div class="label">Best Score</div><div class="value success" id="statBest">—</div></div>
+  </div>
+
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem;" id="cols">
+    <div>
+      <div class="flex-between" style="margin-bottom:.75rem">
+        <h2 style="font-family:'Space Grotesk',sans-serif; font-size:1rem; font-weight:600;">Recent Results</h2>
+        
+      </div>
+      <div id="recentResults"></div>
+    </div>
+    <div>
+      <div class="flex-between" style="margin-bottom:.75rem">
+        <h2 style="font-family:'Space Grotesk',sans-serif; font-size:1rem; font-weight:600;">Available Assessments</h2>
+        <a href="assessments.html" class="btn btn-secondary btn-sm">View all</a>
+      </div>
+      <div id="recentAssess"></div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw '';
+  renderNav('index.html');
+
+  const student = getStudent();
+  if (student) {
+    document.getElementById('greeting').textContent = `Welcome back, ${student.name.split(' ')[0]} 👋`;
+    document.getElementById('subtext').textContent =
+      `${student.school} · Class ${student.student_class}`;
+  }
+
+  async function loadDashboard() {
+    const [assessments, results] = await Promise.all([
+      apiFetch('/assessments').catch(() => []),
+      apiFetch('/results').catch(() => []),
+    ]);
+    const subs = await apiFetch('/submissions/all').catch(() => null);
+
+    document.getElementById('statAssess').textContent  = assessments?.length ?? '—';
+    document.getElementById('statResults').textContent = results?.length ?? '—';
+
+  
+    if (results?.length) {
+      const best = results.reduce((b, r) => {
+        const p = r.total_marks / r.max_marks;
+        return p > (b.total_marks / b.max_marks) ? r : b;
+      });
+      const pct = Math.round((best.total_marks / best.max_marks) * 100);
+      document.getElementById('statBest').textContent = pct + '%';
+    }
+
+    renderRecentResults(results?.slice(-4).reverse() || []);
+    renderRecentAssessments(assessments?.slice(0, 4) || []);
+  }
+
+  function renderRecentResults(results) {
+    const el = document.getElementById('recentResults');
+    if (!results.length) { showEmpty(el, '📊', 'No results yet. Complete an assessment!'); return; }
+    el.innerHTML = results.map(r => {
+      const pct = Math.round((r.total_marks / r.max_marks) * 100);
+      return `
+        <div class="score-ring-wrap" style="margin-bottom:.75rem; cursor:pointer"
+          onclick="window.location='feedback.html?submission_id=${r.submission_id}'">
+          ${buildRing(pct)}
+          <div class="info">
+            <div class="h3">Submission #${r.submission_id}</div>
+            <div class="sub">${r.total_marks} / ${r.max_marks} marks</div>
+            <div class="sub mt-1">${r.overall_feedback || ''}</div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderRecentAssessments(assessments) {
+    const el = document.getElementById('recentAssess');
+    if (!assessments.length) { showEmpty(el, '📝', 'No assessments available.'); return; }
+    el.innerHTML = assessments.map(a => `
+      <div class="assessment-card" onclick="window.location='assessments.html'">
+        <h3>${a.title}</h3>
+        <div class="meta-row">
+          <span class="badge">${a.subject}</span>
+          <span class="badge accent">Class ${a.class_name}</span>
+          <span class="badge info">${a.max_marks} marks</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  loadDashboard();
+</script>
+</body>
+</html>
