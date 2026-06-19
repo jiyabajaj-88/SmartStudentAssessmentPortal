@@ -58,7 +58,7 @@
         </div>
       `;
     } catch (e) {
-      showAlert(el, 'error', 'Could not load profile: ' + (e.detail || e));
+      showAlert(el, 'error', 'Could not load profile: ' + formatError(e.detail));
     }
   }
 

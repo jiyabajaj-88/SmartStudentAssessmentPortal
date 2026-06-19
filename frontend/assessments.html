@@ -60,7 +60,7 @@
         </div>
       `).join('')}</div>`;
     } catch (e) {
-      showAlert(document.getElementById('assessList'), 'error', 'Could not load assessments: ' + (e.detail || e));
+      showAlert(document.getElementById('assessList'), 'error', 'Could not load assessments: ' + formatError(e.detail));
     }
   }
 
@@ -97,15 +97,15 @@
 
       mf.innerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="startAndSubmit(${id})">Start &amp; Submit</button>
+        <button class="btn btn-primary" id="submitBtn" onclick="startAndSubmit(${id})">Submit Assessment</button>
       `;
     } catch (e) {
-      showAlert(mc, 'error', 'Could not load assessment: ' + (e.detail || e));
+      showAlert(mc, 'error', 'Could not load assessment: ' + formatError(e.detail));
     }
   }
 
   function renderQuestion(q, i) {
-    const isObj = q.question_type === 'objective' && q.options?.length;
+    const isObj = q.question_type?.toLowerCase() === 'objective' && q.options?.length;
     const opts = isObj
       ? q.options.map(o => `
           <label class="option-label" id="opt-label-${o.option_id}">
@@ -136,33 +136,48 @@
 
   async function startAndSubmit(assessmentId) {
     const ma = document.getElementById('modalAlert');
-    const mf = document.getElementById('modalFooter');
+    const submitBtn = document.getElementById('submitBtn');
     ma.innerHTML = '';
 
+    const unanswered = questions.filter(q => {
+      const a = answers[q.question_id];
+      if (!a) return true;
+      if (q.question_type?.toLowerCase() === 'objective') return a.selected_option_id == null;
+      return !a.answer_text?.trim();
+    });
+
+    if (unanswered.length) {
+      showAlert(ma, 'error', `Please answer all questions. ${unanswered.length} remaining.`);
+      return;
+    }
+
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
+
     try {
-      // 1. Create submission
       const sub = await apiFetch(`/submissions?assessment_id=${assessmentId}`, { method: 'POST' });
       currentSubmission = sub.submission_id;
 
-      // 2. Build answers payload
       const payload = questions.map(q => {
-        const a = answers[q.question_id] || {};
-        return { question_id: q.question_id, ...a };
+        const a = answers[q.question_id];
+        return {
+          question_id: q.question_id,
+          selected_option_id: a.selected_option_id ?? null,
+          answer_text: a.answer_text?.trim() || null,
+        };
       });
 
-      // 3. Submit answers
       await apiFetch(`/submissions/${currentSubmission}/answers`, {
         method: 'POST',
         body: JSON.stringify(payload),
       });
 
-      // 4. Evaluate
-      const result = await apiFetch(`/submissions/${currentSubmission}/evaluate`, { method: 'POST' });
+      await apiFetch(`/submissions/${currentSubmission}/evaluate`, { method: 'POST' });
 
       closeModal();
       window.location.href = `feedback.html?submission_id=${currentSubmission}`;
     } catch (e) {
-      showAlert(ma, 'error', 'Submission failed: ' + (e.detail || JSON.stringify(e)));
+      showAlert(ma, 'error', 'Submission failed: ' + formatError(e.detail));
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Assessment'; }
     }
   }
 

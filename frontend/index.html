@@ -53,16 +53,15 @@
   }
 
   async function loadDashboard() {
-    const [assessments, results] = await Promise.all([
+    const [assessments, results, submissions] = await Promise.all([
       apiFetch('/assessments').catch(() => []),
       apiFetch('/results').catch(() => []),
+      apiFetch('/submissions').catch(() => []),
     ]);
-    const subs = await apiFetch('/submissions/all').catch(() => null);
 
     document.getElementById('statAssess').textContent  = assessments?.length ?? '—';
-    document.getElementById('statResults').textContent = results?.length ?? '—';
-
-  
+    document.getElementById('statSubs').textContent    = submissions?.length ?? '—';
+    document.getElementById('statResults').textContent  = results?.length ?? '—';
     if (results?.length) {
       const best = results.reduce((b, r) => {
         const p = r.total_marks / r.max_marks;

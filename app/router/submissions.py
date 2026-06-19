@@ -1,11 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.services.submission_service import create_submission, get_submission_by_id
+from app.services.submission_service import create_submission, get_submission_by_id, get_submissions_by_student
 from app.services.evaluation_service import evaluate_submission
 from dependencies import get_current_student
 from app.services.answers_service import get_answers_by_submission
 from typing import List
 from app.schemas import SubmittedAnswerResponse,SubmissionResponse,ResultResponse
 router = APIRouter()
+
+@router.get("/submissions", response_model=List[SubmissionResponse])
+def list_submissions(current_student = Depends(get_current_student)):
+    return get_submissions_by_student(current_student["student_id"])
 
 @router.get("/submissions/{submission_id}/answers",response_model=List[SubmittedAnswerResponse])
 def get_answers(submission_id: int, current_student = Depends(get_current_student)):
@@ -41,6 +45,17 @@ def evaluate_submission_api(
     submission_id: int,
     current_student=Depends(get_current_student)
 ):
+    submission = get_submission_by_id(submission_id)
+    if not submission:
+        raise HTTPException(
+            status_code=404,
+            detail="Error 404: Submission not found"
+        )
+    if submission["student_id"] != current_student["student_id"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Error 403: You are not authorized to evaluate this submission"
+        )
     return evaluate_submission(submission_id)
 
 

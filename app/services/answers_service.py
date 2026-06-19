@@ -65,9 +65,11 @@ def get_answers_by_submission(submission_id):
     cur=conn.cursor(cursor_factory=RealDictCursor)
     try:
         cur.execute(
-        """SELECT answer_id, question_id, selected_option_id
+        """SELECT answer_id, question_id, selected_option_id, answer_text,
+                  marks_awarded, feedback
         FROM submitted_answers
         WHERE submission_id = %s
+        ORDER BY answer_id
         """,
         (submission_id,)
     )

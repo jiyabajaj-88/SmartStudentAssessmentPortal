@@ -86,7 +86,7 @@
       if (profile) saveStudent(profile);
       window.location.href = 'index.html';
     } catch (e) {
-      showAlert(box, 'error', e.detail || 'Login failed.');
+      showAlert(box, 'error', formatError(e.detail) || 'Login failed.');
     }
   }
 
@@ -107,7 +107,7 @@
       switchTab('login');
       document.getElementById('loginEmail').value = body.email;
     } catch (e) {
-      showAlert(box, 'error', e.detail || 'Registration failed.');
+      showAlert(box, 'error', formatError(e.detail) || 'Registration failed.');
     }
   }
 

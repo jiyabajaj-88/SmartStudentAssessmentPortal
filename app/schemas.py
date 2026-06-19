@@ -94,6 +94,9 @@ class SubmittedAnswerResponse(BaseModel):
     answer_id: int
     question_id: int
     selected_option_id: Optional[int] = None
+    answer_text: Optional[str] = None
+    marks_awarded: Optional[int] = None
+    feedback: Optional[str] = None
 
     class Config:
         from_attributes = True

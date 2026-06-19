@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Results – SmartPortal</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<nav></nav>
+
+<div class="page">
+  <div class="page-header">
+    <h1>My Results</h1>
+    <p>A full record of your evaluated assessments.</p>
+  </div>
+
+  <!-- Summary stats -->
+  <div class="stats-row" id="summaryStats" style="margin-bottom:1.75rem"></div>
+
+  <!-- Filter by assessment -->
+  <div style="display:flex;gap:.75rem;margin-bottom:1.5rem;align-items:center;flex-wrap:wrap">
+    <label style="text-transform:none;font-size:.875rem;color:var(--muted);margin:0">Filter by assessment:</label>
+    <select id="filterAssess" onchange="filterResults()" style="width:auto;min-width:180px">
+      <option value="">All assessments</option>
+    </select>
+  </div>
+
+  <div id="resultsGrid"></div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw '';
+  renderNav('results.html');
+
+  let allResults = [];
+
+  async function loadResults() {
+    const el = document.getElementById('resultsGrid');
+    showLoading(el);
+    try {
+      allResults = await apiFetch('/results') || [];
+      if (!allResults.length) { showEmpty(el, '🏆', 'No results yet. Complete an assessment to see your scores!'); return; }
+
+      renderSummary(allResults);
+      populateFilter(allResults);
+      renderGrid(allResults);
+    } catch (e) {
+      showAlert(el, 'error', 'Could not load results: ' + formatError(e.detail));
+    }
+  }
+
+  function renderSummary(results) {
+    const el = document.getElementById('summaryStats');
+    const avg = results.reduce((s, r) => s + r.total_marks / r.max_marks, 0) / results.length * 100;
+    const best = Math.max(...results.map(r => Math.round(r.total_marks / r.max_marks * 100)));
+    const totalMarks = results.reduce((s, r) => s + r.total_marks, 0);
+
+    el.innerHTML = `
+      <div class="stat-card"><div class="label">Total Attempts</div><div class="value">${results.length}</div></div>
+      <div class="stat-card"><div class="label">Average Score</div><div class="value accent">${Math.round(avg)}%</div></div>
+      <div class="stat-card"><div class="label">Best Score</div><div class="value success">${best}%</div></div>
+      <div class="stat-card"><div class="label">Total Marks Earned</div><div class="value">${totalMarks}</div></div>
+    `;
+  }
+
+  function populateFilter(results) {
+    const sel = document.getElementById('filterAssess');
+    apiFetch('/assessments').then(assessments => {
+      if (!assessments) return;
+      assessments.forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a.assessment_id;
+        opt.textContent = a.title;
+        sel.appendChild(opt);
+      });
+    });
+  }
+
+  async function filterResults() {
+    const assessId = document.getElementById('filterAssess').value;
+    const el = document.getElementById('resultsGrid');
+    if (!assessId) { renderGrid(allResults); return; }
+    showLoading(el);
+    try {
+      const filtered = await apiFetch(`/results/assessment/${assessId}`);
+      renderGrid(filtered || []);
+    } catch (e) {
+      renderGrid([]);
+    }
+  }
+
+  function renderGrid(results) {
+    const el = document.getElementById('resultsGrid');
+    if (!results.length) { showEmpty(el, '🔍', 'No results match this filter.'); return; }
+
+    el.innerHTML = `<div class="card-grid">${results.map(r => {
+      const pct = Math.round((r.total_marks / r.max_marks) * 100);
+      const color = pct >= 75 ? 'success' : pct < 50 ? 'danger' : 'accent';
+      return `
+        <a href="feedback.html?submission_id=${r.submission_id}" style="text-decoration:none">
+          <div class="assessment-card" style="cursor:pointer">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem">
+              <div>
+                <h3 style="margin-bottom:.5rem">Submission #${r.submission_id}</h3>
+                <div class="meta-row" style="margin-top:.25rem">
+                  <span class="badge ${color}">${pct}%</span>
+                  <span class="badge">${r.total_marks} / ${r.max_marks} marks</span>
+                </div>
+                <p class="text-muted text-sm" style="margin-top:.6rem">${r.overall_feedback || ''}</p>
+              </div>
+              ${buildRing(pct)}
+            </div>
+            <div class="progress-wrap mt-2">
+              <div class="progress-bar ${pct>=75?'success':pct<50?'danger':''}" style="width:${pct}%"></div>
+            </div>
+          </div>
+        </a>`;
+    }).join('')}</div>`;
+  }
+
+  loadResults();
+</script>
+</body>
+</html>

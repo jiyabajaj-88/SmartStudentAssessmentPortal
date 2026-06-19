@@ -20,7 +20,7 @@
   </div>
 </div>
 
-
+<!-- ANSWERS MODAL -->
 <div class="modal-overlay" id="answersModal">
   <div class="modal">
     <div class="modal-header">
@@ -38,37 +38,37 @@
   if (!requireAuth()) throw '';
   renderNav('submissions.html');
 
-  
+  let questionCache = {};
+
   async function loadSubmissions() {
     const el = document.getElementById('subsContent');
     showLoading(el);
     try {
-      const results = await apiFetch('/results');
-      if (!results?.length) {
+      const [submissions, results, assessments] = await Promise.all([
+        apiFetch('/submissions'),
+        apiFetch('/results').catch(() => []),
+        apiFetch('/assessments').catch(() => []),
+      ]);
+
+      if (!submissions?.length) {
         showEmpty(el, '📋', 'No submissions yet. Go take an assessment!');
         return;
       }
 
-      
-      const subIds = [...new Set(results.map(r => r.submission_id))];
-      const submissions = await Promise.all(
-        subIds.map(id => apiFetch(`/submissions/${id}`).catch(() => null))
-      );
-      const validSubs = submissions.filter(Boolean);
-      if (!validSubs.length) { showEmpty(el, '📋', 'No submissions found.'); return; }
-
-      
       const resultMap = {};
-      results.forEach(r => { resultMap[r.submission_id] = r; });
+      (results || []).forEach(r => { resultMap[r.submission_id] = r; });
 
-      renderTable(validSubs, resultMap);
+      const assessMap = {};
+      (assessments || []).forEach(a => { assessMap[a.assessment_id] = a; });
+
+      renderTable(submissions, resultMap, assessMap);
     } catch (e) {
-      showAlert(document.getElementById('alertBox'), 'error', 'Could not load submissions: ' + (e.detail || e));
+      showAlert(document.getElementById('alertBox'), 'error', 'Could not load submissions: ' + formatError(e.detail));
       el.innerHTML = '';
     }
   }
 
-  function renderTable(subs, resultMap) {
+  function renderTable(subs, resultMap, assessMap) {
     const el = document.getElementById('subsContent');
     el.innerHTML = `
       <table>
@@ -85,6 +85,7 @@
         <tbody>
           ${subs.map(s => {
             const r = resultMap[s.submission_id];
+            const a = assessMap[s.assessment_id];
             const pct = r ? Math.round((r.total_marks / r.max_marks) * 100) : null;
             const statusBadge = s.status === 'Evaluated'
               ? `<span class="badge success">${s.status}</span>`
@@ -101,13 +102,13 @@
             return `
               <tr>
                 <td><span class="font-mono">#${s.submission_id}</span></td>
-                <td class="text-sm">Assessment #${s.assessment_id}</td>
+                <td class="text-sm">${a?.title || 'Assessment #' + s.assessment_id}</td>
                 <td>${statusBadge}</td>
                 <td class="text-muted text-sm">${formatDate(s.submitted_at)}</td>
                 <td>${scoreHtml}</td>
                 <td>
                   <div style="display:flex;gap:.4rem">
-                    <button class="btn btn-secondary btn-sm" onclick="viewAnswers(${s.submission_id})">Answers</button>
+                    <button class="btn btn-secondary btn-sm" onclick="viewAnswers(${s.submission_id}, ${s.assessment_id})">Answers</button>
                     ${r ? `<a href="feedback.html?submission_id=${s.submission_id}" class="btn btn-primary btn-sm">Feedback</a>` : ''}
                   </div>
                 </td>
@@ -117,24 +118,45 @@
       </table>`;
   }
 
-  async function viewAnswers(submissionId) {
+  async function viewAnswers(submissionId, assessmentId) {
     const el = document.getElementById('answersContent');
     document.getElementById('answersModal').classList.add('show');
     showLoading(el);
     try {
+      if (!questionCache[assessmentId]) {
+        questionCache[assessmentId] = await apiFetch(`/assessments/${assessmentId}/questions`) || [];
+      }
+      const questions = questionCache[assessmentId];
+      const qMap = {};
+      questions.forEach(q => { qMap[q.question_id] = q; });
+
+      const optMap = {};
+      questions.forEach(q => {
+        (q.options || []).forEach(o => { optMap[o.option_id] = o.option_text; });
+      });
+
       const answers = await apiFetch(`/submissions/${submissionId}/answers`);
       if (!answers?.length) { showEmpty(el, '📄', 'No answers found.'); return; }
-      el.innerHTML = answers.map(a => `
-        <div class="feedback-item">
-          <div class="answer">Question ID: <strong>${a.question_id}</strong></div>
-          ${a.selected_option_id != null
-            ? `<div class="answer">Selected option ID: <strong>${a.selected_option_id}</strong></div>`
-            : `<div class="answer text-muted">Subjective answer (see feedback for details)</div>`
-          }
-        </div>
-      `).join('');
+
+      el.innerHTML = answers.map((a, i) => {
+        const q = qMap[a.question_id];
+        const selectedText = a.selected_option_id != null
+          ? (optMap[a.selected_option_id] || `Option #${a.selected_option_id}`)
+          : null;
+        return `
+          <div class="feedback-item">
+            <div class="q-num">Q${i + 1} · ${q?.question_text || 'Question #' + a.question_id}</div>
+            ${selectedText
+              ? `<div class="answer">${selectedText}</div>`
+              : a.answer_text
+                ? `<div class="answer" style="white-space:pre-wrap">${a.answer_text}</div>`
+                : `<div class="answer text-muted">No answer provided</div>`
+            }
+            ${a.marks_awarded != null ? `<div class="text-sm text-muted mt-1">${a.marks_awarded} / ${q?.marks || '?'} marks · ${a.feedback || ''}</div>` : ''}
+          </div>`;
+      }).join('');
     } catch (e) {
-      showAlert(el, 'error', 'Could not load answers: ' + (e.detail || e));
+      showAlert(el, 'error', 'Could not load answers: ' + formatError(e.detail));
     }
   }
 

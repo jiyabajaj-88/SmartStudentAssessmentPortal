@@ -28,6 +28,10 @@ def create_result(
                 %s,
                 %s
             )
+            ON CONFLICT (submission_id) DO UPDATE SET
+                total_marks = EXCLUDED.total_marks,
+                max_marks = EXCLUDED.max_marks,
+                overall_feedback = EXCLUDED.overall_feedback
             """,
             (
                 submission_id,

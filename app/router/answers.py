@@ -26,6 +26,8 @@ def submit_answers(
             )
     
     for answer in answers:
+        if answer.selected_option_id is None and not answer.answer_text:
+            continue
         submit_answer(
             submission_id,
             answer.question_id,

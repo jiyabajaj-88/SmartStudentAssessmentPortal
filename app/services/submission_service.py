@@ -22,6 +22,21 @@ def create_submission(student_id, assessment_id):
            "submitted_at": submission["submitted_at"],
        }
 
+def get_submissions_by_student(student_id):
+    conn.rollback()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute(
+        """SELECT submission_id, student_id, assessment_id, status, submitted_at
+        FROM submissions
+        WHERE student_id = %s
+        ORDER BY submitted_at DESC
+        """,
+        (student_id,),
+    )
+    submissions = cur.fetchall()
+    cur.close()
+    return submissions
+
 def get_submission_by_id(submission_id):
     conn.rollback()
     cur = conn.cursor(cursor_factory=RealDictCursor)
