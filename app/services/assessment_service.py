@@ -1,5 +1,4 @@
 from app.db import conn
-import psycopg2
 from  psycopg2.extras import RealDictCursor
 def get_assessments_for_student(student_class):
     conn.rollback()

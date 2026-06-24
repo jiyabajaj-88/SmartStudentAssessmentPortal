@@ -1,17 +1,13 @@
-from fastapi import FastAPI
-
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.router import answers, assessments, auth_router, results
 from app.router import submissions
-
 from app.schemas import StudentResponse
-from fastapi.middleware.cors import CORSMiddleware
-
-
 from app.services.student_service import get_student_by_id
+from app.dependencies import get_current_student
 
-app=FastAPI()
+app = FastAPI()
 
 # Middleware must be added before routers
 app.add_middleware(
@@ -28,11 +24,10 @@ app.include_router(answers.router)
 app.include_router(results.router)
 
 
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/login"
-    )
-
-
+# BUG 6 FIX: Added authentication + null check for missing student
 @app.get("/students/{student_id}", response_model=StudentResponse)
-def student(student_id: int):
-    return get_student_by_id(student_id)
+def student(student_id: int, current_student=Depends(get_current_student)):
+    result = get_student_by_id(student_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return result

@@ -133,3 +133,28 @@ function formatError(detail) {
   }
   return JSON.stringify(detail);
 }
+
+// ── XSS ESCAPING (BUG 10) ───────────────────────────────
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// ── SAFE PERCENTAGE ─────────────────────────────────────
+function safePct(total, max) {
+  if (!max || max === 0) return 0;
+  return Math.round((total / max) * 100);
+}
+
+// ── DATE FORMATTING (BUG 19) ────────────────────────────
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleDateString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+}

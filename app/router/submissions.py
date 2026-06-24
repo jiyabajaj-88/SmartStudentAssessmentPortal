@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.services.submission_service import create_submission, get_submission_by_id, get_submissions_by_student
 from app.services.evaluation_service import evaluate_submission
-from dependencies import get_current_student
+from app.dependencies import get_current_student
 from app.services.answers_service import get_answers_by_submission
 from typing import List
 from app.schemas import SubmittedAnswerResponse,SubmissionResponse,ResultResponse

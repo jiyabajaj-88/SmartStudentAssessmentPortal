@@ -51,10 +51,10 @@
       if (!data?.length) { showEmpty(el, '📝', 'No assessments available for your class right now.'); return; }
       el.innerHTML = `<div class="card-grid">${data.map(a => `
         <div class="assessment-card" onclick="openAssessment(${a.assessment_id})">
-          <h3>${a.title}</h3>
-          <p class="text-muted text-sm mt-1">${a.subject}</p>
+          <h3>${escapeHtml(a.title)}</h3>
+          <p class="text-muted text-sm mt-1">${escapeHtml(a.subject)}</p>
           <div class="meta-row">
-            <span class="badge">Class ${a.class_name}</span>
+            <span class="badge">Class ${escapeHtml(a.class_name)}</span>
             <span class="badge accent">${a.max_marks} marks</span>
           </div>
         </div>
@@ -87,7 +87,7 @@
       mc.innerHTML = `
         <div style="margin-bottom:1.25rem">
           <div class="meta-row">
-            <span class="badge">${assessment.subject}</span>
+            <span class="badge">${escapeHtml(assessment.subject)}</span>
             <span class="badge info">${assessment.max_marks} marks total</span>
             <span class="badge">${questions.length} questions</span>
           </div>
@@ -120,8 +120,8 @@
 
     return `
       <div class="question-card">
-        <div class="q-num">Q${i + 1} · ${q.question_type}</div>
-        <div class="q-text">${q.question_text}</div>
+        <div class="q-num">Q${i + 1} · ${escapeHtml(q.question_type)}</div>
+        <div class="q-text">${escapeHtml(q.question_text)}</div>
         ${opts}
       </div>`;
   }
@@ -173,8 +173,9 @@
 
       await apiFetch(`/submissions/${currentSubmission}/evaluate`, { method: 'POST' });
 
-      closeModal();
-      window.location.href = `feedback.html?submission_id=${currentSubmission}`;
+    const submissionId = currentSubmission;  // ← save it first
+    closeModal();
+    window.location.href = `feedback.html?submission_id=${submissionId}`;
     } catch (e) {
       showAlert(ma, 'error', 'Submission failed: ' + formatError(e.detail));
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Assessment'; }

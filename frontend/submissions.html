@@ -86,7 +86,7 @@
           ${subs.map(s => {
             const r = resultMap[s.submission_id];
             const a = assessMap[s.assessment_id];
-            const pct = r ? Math.round((r.total_marks / r.max_marks) * 100) : null;
+            const pct = r ? safePct(r.total_marks, r.max_marks) : null;
             const statusBadge = s.status === 'Evaluated'
               ? `<span class="badge success">${s.status}</span>`
               : `<span class="badge">${s.status}</span>`;
@@ -102,7 +102,7 @@
             return `
               <tr>
                 <td><span class="font-mono">#${s.submission_id}</span></td>
-                <td class="text-sm">${a?.title || 'Assessment #' + s.assessment_id}</td>
+                <td class="text-sm">${escapeHtml(a?.title || 'Assessment #' + s.assessment_id)}</td>
                 <td>${statusBadge}</td>
                 <td class="text-muted text-sm">${formatDate(s.submitted_at)}</td>
                 <td>${scoreHtml}</td>
@@ -145,14 +145,14 @@
           : null;
         return `
           <div class="feedback-item">
-            <div class="q-num">Q${i + 1} · ${q?.question_text || 'Question #' + a.question_id}</div>
+            <div class="q-num">Q${i + 1} · ${escapeHtml(q?.question_text || 'Question #' + a.question_id)}</div>
             ${selectedText
-              ? `<div class="answer">${selectedText}</div>`
+              ? `<div class="answer">${escapeHtml(selectedText)}</div>`
               : a.answer_text
-                ? `<div class="answer" style="white-space:pre-wrap">${a.answer_text}</div>`
+                ? `<div class="answer" style="white-space:pre-wrap">${escapeHtml(a.answer_text)}</div>`
                 : `<div class="answer text-muted">No answer provided</div>`
             }
-            ${a.marks_awarded != null ? `<div class="text-sm text-muted mt-1">${a.marks_awarded} / ${q?.marks || '?'} marks · ${a.feedback || ''}</div>` : ''}
+            ${a.marks_awarded != null ? `<div class="text-sm text-muted mt-1">${a.marks_awarded} / ${q?.marks || '?'} marks · ${escapeHtml(a.feedback)}</div>` : ''}
           </div>`;
       }).join('');
     } catch (e) {
@@ -164,12 +164,7 @@
     document.getElementById('answersModal').classList.remove('show');
   }
 
-  function formatDate(dateStr) {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString('en-IN', {
-      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-    });
-  }
+  // formatDate is now in app.js (shared utility)
 
   loadSubmissions();
 </script>

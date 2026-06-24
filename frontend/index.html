@@ -67,7 +67,7 @@
         const p = r.total_marks / r.max_marks;
         return p > (b.total_marks / b.max_marks) ? r : b;
       });
-      const pct = Math.round((best.total_marks / best.max_marks) * 100);
+      const pct = safePct(best.total_marks, best.max_marks);
       document.getElementById('statBest').textContent = pct + '%';
     }
 
@@ -79,7 +79,7 @@
     const el = document.getElementById('recentResults');
     if (!results.length) { showEmpty(el, '📊', 'No results yet. Complete an assessment!'); return; }
     el.innerHTML = results.map(r => {
-      const pct = Math.round((r.total_marks / r.max_marks) * 100);
+      const pct = safePct(r.total_marks, r.max_marks);
       return `
         <div class="score-ring-wrap" style="margin-bottom:.75rem; cursor:pointer"
           onclick="window.location='feedback.html?submission_id=${r.submission_id}'">
@@ -87,7 +87,7 @@
           <div class="info">
             <div class="h3">Submission #${r.submission_id}</div>
             <div class="sub">${r.total_marks} / ${r.max_marks} marks</div>
-            <div class="sub mt-1">${r.overall_feedback || ''}</div>
+            <div class="sub mt-1">${escapeHtml(r.overall_feedback)}</div>
           </div>
         </div>`;
     }).join('');
@@ -98,10 +98,10 @@
     if (!assessments.length) { showEmpty(el, '📝', 'No assessments available.'); return; }
     el.innerHTML = assessments.map(a => `
       <div class="assessment-card" onclick="window.location='assessments.html'">
-        <h3>${a.title}</h3>
+        <h3>${escapeHtml(a.title)}</h3>
         <div class="meta-row">
-          <span class="badge">${a.subject}</span>
-          <span class="badge accent">Class ${a.class_name}</span>
+          <span class="badge">${escapeHtml(a.subject)}</span>
+          <span class="badge accent">Class ${escapeHtml(a.class_name)}</span>
           <span class="badge info">${a.max_marks} marks</span>
         </div>
       </div>

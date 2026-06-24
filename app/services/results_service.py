@@ -1,5 +1,4 @@
 from app.db import conn
-import psycopg2
 from  psycopg2.extras import RealDictCursor
 
 def create_result(

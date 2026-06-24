@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.schemas import AnswerRequest, AnswerUpdate
-from app.services.answers_service import submit_answer, update_answer
+from app.schemas import AnswerRequest, AnswerUpdate, MessageResponse
+from app.services.answers_service import submit_answer, update_answer, get_answer_by_id
 from app.services.submission_service import get_submission_by_id
-from dependencies import get_current_student
-from app.schemas import MessageResponse
+from app.dependencies import get_current_student
+
 router = APIRouter()
 
-@router.post("/submissions/{submission_id}/answers",response_model=MessageResponse)
+@router.post("/submissions/{submission_id}/answers", response_model=MessageResponse)
 def submit_answers(
     submission_id: int,
     answers: list[AnswerRequest],
@@ -43,6 +43,16 @@ def update_answer_api(
     answer: AnswerUpdate,
     current_student = Depends(get_current_student)
 ):
+    # BUG 11 FIX: Verify the answer belongs to the current student
+    existing_answer = get_answer_by_id(answer_id)
+    if not existing_answer:
+        raise HTTPException(status_code=404, detail="Answer not found")
+    if existing_answer["student_id"] != current_student["student_id"]:
+        raise HTTPException(
+            status_code=403, 
+            detail="You are not authorized to update this answer"
+        )
+    
     return update_answer(
         answer_id,
         answer.selected_option_id,

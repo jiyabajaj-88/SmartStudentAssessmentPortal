@@ -53,8 +53,8 @@
 
   function renderSummary(results) {
     const el = document.getElementById('summaryStats');
-    const avg = results.reduce((s, r) => s + r.total_marks / r.max_marks, 0) / results.length * 100;
-    const best = Math.max(...results.map(r => Math.round(r.total_marks / r.max_marks * 100)));
+    const avg = results.reduce((s, r) => s + safePct(r.total_marks, r.max_marks), 0) / results.length;
+    const best = Math.max(...results.map(r => safePct(r.total_marks, r.max_marks)));
     const totalMarks = results.reduce((s, r) => s + r.total_marks, 0);
 
     el.innerHTML = `
@@ -96,7 +96,7 @@
     if (!results.length) { showEmpty(el, '🔍', 'No results match this filter.'); return; }
 
     el.innerHTML = `<div class="card-grid">${results.map(r => {
-      const pct = Math.round((r.total_marks / r.max_marks) * 100);
+      const pct = safePct(r.total_marks, r.max_marks);
       const color = pct >= 75 ? 'success' : pct < 50 ? 'danger' : 'accent';
       return `
         <a href="feedback.html?submission_id=${r.submission_id}" style="text-decoration:none">
@@ -108,7 +108,7 @@
                   <span class="badge ${color}">${pct}%</span>
                   <span class="badge">${r.total_marks} / ${r.max_marks} marks</span>
                 </div>
-                <p class="text-muted text-sm" style="margin-top:.6rem">${r.overall_feedback || ''}</p>
+                <p class="text-muted text-sm" style="margin-top:.6rem">${escapeHtml(r.overall_feedback)}</p>
               </div>
               ${buildRing(pct)}
             </div>
