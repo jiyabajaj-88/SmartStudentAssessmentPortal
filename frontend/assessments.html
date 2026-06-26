@@ -47,21 +47,116 @@
     const el = document.getElementById('assessList');
     showLoading(el);
     try {
-      const data = await apiFetch('/assessments');
+      const [data, submissions] = await Promise.all([
+        apiFetch('/assessments'),
+        apiFetch('/submissions')
+      ]);
       if (!data?.length) { showEmpty(el, '📝', 'No assessments available for your class right now.'); return; }
-      el.innerHTML = `<div class="card-grid">${data.map(a => `
-        <div class="assessment-card" onclick="openAssessment(${a.assessment_id})">
-          <h3>${escapeHtml(a.title)}</h3>
-          <p class="text-muted text-sm mt-1">${escapeHtml(a.subject)}</p>
-          <div class="meta-row">
-            <span class="badge">Class ${escapeHtml(a.class_name)}</span>
-            <span class="badge accent">${a.max_marks} marks</span>
+
+      // Build a map: assessment_id -> array of submissions
+      const subMap = {};
+      (submissions || []).forEach(s => {
+        if (!subMap[s.assessment_id]) subMap[s.assessment_id] = [];
+        subMap[s.assessment_id].push(s);
+      });
+
+      // Classify each assessment
+      const pending = [];
+      const completed = [];
+      const retake = [];
+
+      data.forEach(a => {
+        const subs = subMap[a.assessment_id];
+        if (!subs || subs.length === 0) {
+          pending.push(a);
+        } else {
+          completed.push(a);
+          // Retake is allowed for all assessments right now
+          retake.push(a);
+        }
+      });
+
+      let html = '';
+
+      // Pending section
+      if (pending.length) {
+        html += `<div class="assess-section">
+          <div class="assess-section-header">
+            <span class="assess-section-icon pending">◷</span>
+            <h2>Pending</h2>
+            <span class="badge">${pending.length}</span>
           </div>
-        </div>
-      `).join('')}</div>`;
+          <div class="card-grid">${pending.map(a => renderAssessCard(a, 'pending', null)).join('')}</div>
+        </div>`;
+      }
+
+      // Completed section
+      if (completed.length) {
+        html += `<div class="assess-section">
+          <div class="assess-section-header">
+            <span class="assess-section-icon completed">✓</span>
+            <h2>Completed</h2>
+            <span class="badge success">${completed.length}</span>
+          </div>
+          <div class="card-grid">${completed.map(a => {
+            const latest = subMap[a.assessment_id].sort((x, y) =>
+              new Date(y.submitted_at) - new Date(x.submitted_at)
+            )[0];
+            return renderAssessCard(a, 'completed', latest);
+          }).join('')}</div>
+        </div>`;
+      }
+
+      // Retake section
+      if (retake.length) {
+        html += `<div class="assess-section">
+          <div class="assess-section-header">
+            <span class="assess-section-icon retake">↺</span>
+            <h2>Retake Available</h2>
+            <span class="badge info">${retake.length}</span>
+          </div>
+          <div class="card-grid">${retake.map(a => renderAssessCard(a, 'retake', null)).join('')}</div>
+        </div>`;
+      }
+
+      if (!html) { showEmpty(el, '📝', 'No assessments available for your class right now.'); return; }
+      el.innerHTML = html;
     } catch (e) {
       showAlert(document.getElementById('assessList'), 'error', 'Could not load assessments: ' + formatError(e.detail));
     }
+  }
+
+  function renderAssessCard(a, status, latestSub) {
+    const statusConfig = {
+      pending:   { label: 'Pending',   cls: 'accent',  icon: '◷', action: 'Take Assessment →' },
+      completed: { label: 'Completed', cls: 'success', icon: '✓', action: 'View Submitted Answers →' },
+      retake:    { label: 'Retake',    cls: 'info',     icon: '↺', action: 'Retake Assessment →' }
+    };
+    const s = statusConfig[status];
+
+    const submittedInfo = latestSub
+      ? `<span class="text-sm text-muted" style="margin-top:.35rem;display:block">Last submitted: ${formatDate(latestSub.submitted_at)}</span>`
+      : '';
+
+    // Completed cards go to feedback page; pending/retake open the assessment modal
+    const clickAction = status === 'completed' && latestSub
+      ? `window.location.href='feedback.html?submission_id=${latestSub.submission_id}'`
+      : `openAssessment(${a.assessment_id})`;
+
+    return `
+      <div class="assessment-card assess-status-${status}" onclick="${clickAction}">
+        <div class="assess-status-badge">
+          <span class="badge ${s.cls}">${s.icon} ${s.label}</span>
+        </div>
+        <h3>${escapeHtml(a.title)}</h3>
+        <p class="text-muted text-sm mt-1">${escapeHtml(a.subject)}</p>
+        ${submittedInfo}
+        <div class="meta-row">
+          <span class="badge">Class ${escapeHtml(a.class_name)}</span>
+          <span class="badge accent">${a.max_marks} marks</span>
+        </div>
+        <div class="assess-action text-sm">${s.action}</div>
+      </div>`;
   }
 
   async function openAssessment(id) {

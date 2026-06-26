@@ -116,7 +116,7 @@
         ` : `<div class="alert alert-info mt-2">This submission hasn't been evaluated yet.</div>`}
       </div>
 
-      <!-- Answers & feedback -->
+      
       <div class="page-header" style="margin-bottom:1rem">
         <h2 style="font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:600">
           Answer Review (${answers?.length || 0} answers)
@@ -158,9 +158,14 @@
                 ` : ''}
 
                 ${a.marks_awarded != null ? `
-                  <div style="margin-top:.75rem;padding:.75rem;background:var(--surface2);border-radius:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
-                    <span class="text-sm"><strong>${a.marks_awarded}</strong> / ${q?.marks || '?'} marks</span>
-                    ${a.feedback ? `<span class="badge ${a.marks_awarded > 0 ? 'success' : 'danger'}">${escapeHtml(a.feedback)}</span>` : ''}
+                  <div style="margin-top:.75rem;padding:.75rem;background:var(--surface2);border-radius:6px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${a.feedback ? '.6rem' : '0'}">
+                      <span class="text-sm"><strong>${a.marks_awarded}</strong> / ${q?.marks || '?'} marks</span>
+                      <span class="badge ${a.marks_awarded === q?.marks ? 'success' : a.marks_awarded > 0 ? 'accent' : 'danger'}">
+                        ${a.marks_awarded === q?.marks ? 'Full marks' : a.marks_awarded > 0 ? 'Partial' : 'No marks'}
+                      </span>
+                    </div>
+                    ${a.feedback ? `<p class="text-sm" style="color:var(--muted);white-space:pre-line;margin:0">${escapeHtml(a.feedback)}</p>` : ''}
                   </div>
                 ` : ''}
               </div>`;

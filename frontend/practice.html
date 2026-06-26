@@ -1,0 +1,492 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Practice  SmartPortal</title>
+  <meta name="description" content="Practice with AI-generated questions tailored to your subject and class. Get instant feedback powered by Gemini." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<nav></nav>
+
+<div class="page">
+
+  
+  <div class="page-header">
+    <h1>AI Practice Mode</h1>
+    <p>Generate personalized questions on any topic and get instant AI-powered feedback.</p>
+  </div>
+
+  
+  <div id="setupSection">
+    <div class="practice-setup">
+      <div><span class="ai-badge"><span class="ai-badge-dot"></span>POWERED BY GEMINI AI</span></div>
+
+      <div class="card" style="margin-top:0">
+        <h2 style="font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:.3rem">
+          Configure Your Session
+        </h2>
+        <p class="text-muted text-sm" style="margin-bottom:1.75rem">
+          The AI will generate fresh questions just for you based on your settings.
+        </p>
+
+        <!-- Subject -->
+        <div class="form-group">
+          <label for="subjectInput">Subject</label>
+          <input type="text" id="subjectInput"
+            placeholder="e.g. Mathematics, Biology, World Historyâ€¦"
+            autocomplete="off" />
+        </div>
+
+        <div class="form-group">
+          <label for="topicInput">Topic</label>
+          <input type="text" id="topicInput"
+            placeholder="e.g. Quadratic Equations, Photosynthesis, World War II…"
+            autocomplete="off" />
+        </div>
+
+        <!-- Class -->
+        <div class="form-group">
+          <label for="classInput">Class / Grade</label>
+          <input type="text" id="classInput"
+            placeholder="e.g. 10A, Grade 8, Class 12"
+            autocomplete="off" />
+        </div>
+
+        <!-- AI generates 5 MCQ + 3 Subjective automatically -->
+
+        <div id="setupAlert"></div>
+
+        <button class="btn btn-primary" style="width:100%;margin-top:.25rem"
+          id="generateBtn" onclick="startGeneration()">
+          Generate Questions →
+        </button>
+      </div>
+
+      <!-- Tips card -->
+      <div class="card" style="margin-top:1rem;padding:1rem 1.25rem">
+        <p class="text-sm" style="color:var(--muted);display:flex;gap:.5rem;align-items:flex-start">
+          <span style="font-size:1rem;flex-shrink:0">💡</span>
+          <span>
+            <strong style="color:var(--text)">Tip:</strong>
+            Be specific with your subject (e.g. <em>"Algebra - Quadratic Equations"</em>) for more targeted questions.
+            The AI will also evaluate your subjective answers and give constructive feedback.
+          </span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div id="questionsSection" class="hidden">
+
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem;margin-bottom:1.5rem">
+      <div>
+        <div class="question-progress">
+          <span class="prog-label" id="progressLabel">0 / 0 answered</span>
+          <div class="progress-wrap" style="width:180px">
+            <div class="progress-bar" id="progressBar" style="width:0%"></div>
+          </div>
+        </div>
+        <p class="text-sm text-muted" id="sessionMeta" style="margin-top:.3rem"></p>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="goToSetup()"> → Change Settings</button>
+    </div>
+
+    <div id="questionsContainer"></div>
+
+    <div id="questionsAlert" style="margin-bottom:1rem"></div>
+    <div style="text-align:center;padding-bottom:1rem">
+      <button class="btn btn-primary" id="submitBtn" onclick="submitPractice()" style="min-width:200px">
+        Submit &amp; Evaluate â†’
+      </button>
+    </div>
+  </div>
+
+  
+  <div id="resultsSection" class="hidden">
+
+    <div class="card practice-result-card" style="margin-bottom:1.5rem">
+      <div class="practice-result-ring" id="resultRingContainer"></div>
+      <div class="result-perf" id="resultPerf"></div>
+      <div class="result-sub" id="resultSub" style="margin-bottom:1.25rem"></div>
+
+      <div class="stats-row" id="resultStats"
+        style="margin-bottom:0;max-width:480px;margin-left:auto;margin-right:auto"></div>
+    </div>
+
+    <div class="flex-between" style="margin-bottom:.75rem;margin-top:1.5rem">
+      <h2 style="font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:600">
+        Answer Review
+      </h2>
+      <button class="btn btn-secondary btn-sm" onclick="expandAll()">Expand All</button>
+    </div>
+    <div id="resultsBreakdown"></div>
+
+    <div style="display:flex;gap:.75rem;justify-content:center;margin-top:2rem;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="resetPractice()">↺ Practice Again</button>
+      <button class="btn btn-secondary" onclick="goToSetup()">Change Settings</button>
+    </div>
+  </div>
+
+</div><!-- .page -->
+
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw '';
+  renderNav('practice.html');
+  
+  const _reviewId = new URLSearchParams(window.location.search).get('review');
+  if (_reviewId) loadReview(parseInt(_reviewId));
+
+  
+  const _me = getStudent();
+  if (_me?.student_class) {
+    document.getElementById('classInput').value = _me.student_class;
+  }
+
+  
+  let currentAssessmentId = null;
+  let questions = [];  
+  let _subject = '';
+  let _topic = '';
+  let _class   = '';
+
+  function goToSetup() {
+    document.getElementById('setupSection').classList.remove('hidden');
+    document.getElementById('questionsSection').classList.add('hidden');
+    document.getElementById('resultsSection').classList.add('hidden');
+  }
+
+  function resetPractice() {
+    currentAssessmentId = null;
+    questions = [];
+    document.getElementById('questionsContainer').innerHTML = '';
+    document.getElementById('questionsAlert').innerHTML = '';
+    document.getElementById('resultsBreakdown').innerHTML = '';
+    document.getElementById('setupAlert').innerHTML = '';
+    goToSetup();
+  }
+
+
+  async function startGeneration() {
+    _subject = document.getElementById('subjectInput').value.trim();
+    _topic   = document.getElementById('topicInput').value.trim();
+    _class   = document.getElementById('classInput').value.trim();
+    const alertBox = document.getElementById('setupAlert');
+    alertBox.innerHTML = '';
+
+    if (!_subject) { showAlert(alertBox, 'error', 'Please enter a subject.'); return; }
+    if (!_topic)   { showAlert(alertBox, 'error', 'Please enter a topic.'); return; }
+    if (!_class)   { showAlert(alertBox, 'error', 'Please enter your class or grade.'); return; }
+
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;margin:0 4px 0 0;display:inline-block;vertical-align:middle"></div> Generatingâ€¦';
+
+    try {
+      const data = await apiFetch('/ai/practice/generate', {
+        method: 'POST',
+        body: JSON.stringify({ subject: _subject, topic: _topic })
+      });
+
+      if (!data?.practice_assessment_id || !Array.isArray(data.questions) || !data.questions.length) {
+        throw { detail: 'Server returned an unexpected response. Please try again.' };
+      }
+
+      currentAssessmentId = data.practice_assessment_id;
+      questions = data.questions;
+      renderQuestions();
+    } catch (e) {
+      const errMsg = e.detail || e.message || 'Generation failed. Please try again.';
+      showAlert(alertBox, 'error', escapeHtml(errMsg));
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Generate Questions →';
+    }
+  }
+
+  function renderQuestions() {
+    document.getElementById('setupSection').classList.add('hidden');
+    document.getElementById('questionsSection').classList.remove('hidden');
+    document.getElementById('resultsSection').classList.add('hidden');
+    document.getElementById('questionsAlert').innerHTML = '';
+    document.getElementById('submitBtn').disabled = false;
+    document.getElementById('submitBtn').innerHTML = 'Submit &amp; Evaluate â†’';
+
+    const total = questions.length;
+    document.getElementById('progressLabel').textContent = `0 / ${total} answered`;
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('sessionMeta').textContent =
+      `${escapeHtml(_subject)} Â· Class ${escapeHtml(_class)} Â· 5 MCQ + 3 Subjective`;
+
+    const container = document.getElementById('questionsContainer');
+    container.innerHTML = questions.map((q, i) => {
+      const isObj = q.question_type === 'objective' && q.options?.length;
+      if (isObj) {
+        const optsHtml = q.options.map((opt, oi) => `
+          <label class="option-label" id="opt-${q.practice_question_id}-${oi}">
+            <input type="radio" name="q${q.practice_question_id}" value="${escapeHtml(opt.option_text)}"
+              onchange="onAnswer()">
+            <span>${escapeHtml(opt.option_text)}</span>
+          </label>`).join('');
+        return `
+          <div class="question-card" style="animation-delay:${(i * 0.06).toFixed(2)}s">
+            <div class="q-num">Q${i + 1} Â· MCQ Â· ${q.marks} mark${q.marks > 1 ? 's' : ''}</div>
+            <div class="q-text">${escapeHtml(q.question_text)}</div>
+            ${optsHtml}
+            <div id="exp-${q.practice_question_id}" class="hidden"></div>
+          </div>`;
+      } else {
+        return `
+          <div class="question-card" style="animation-delay:${(i * 0.06).toFixed(2)}s">
+            <div class="q-num">Q${i + 1} Â· SUBJECTIVE Â· ${q.marks} marks</div>
+            <div class="q-text">${escapeHtml(q.question_text)}</div>
+            <textarea id="ans-${q.practice_question_id}" rows="4"
+              placeholder="Write your answer hereâ€¦" oninput="onAnswer()"
+              style="margin-top:.5rem"></textarea>
+          </div>`;
+      }
+    }).join('');
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function loadReview(practiceAssessmentId) {
+    document.getElementById('setupSection').classList.add('hidden');
+    document.getElementById('questionsSection').classList.add('hidden');
+    document.getElementById('resultsSection').classList.remove('hidden');
+
+    document.getElementById('resultsBreakdown').innerHTML =
+      '<div class="loading"><div class="spinner"></div>Loading review…</div>';
+
+    try {
+      // fetch result AND assessment so _subject and questions are populated
+      const [result, assessment] = await Promise.all([
+        apiFetch(`/ai/practice/${practiceAssessmentId}/result`),
+        apiFetch(`/ai/practice/${practiceAssessmentId}`)
+      ]);
+
+      // populate globals that showResults() depends on
+      currentAssessmentId = practiceAssessmentId;
+      _subject = assessment.subject || '';
+      _topic   = assessment.topic   || '';
+      _class   = assessment.student_class || '';
+      questions = assessment.questions || [];
+
+      showResults(result);
+
+      // Replace bottom action buttons
+      document.querySelector('#resultsSection > div[style*="justify-content:center"]').innerHTML = `
+        <a href="results.html" class="btn btn-secondary">← Back to Results</a>
+      `;
+    } catch (e) {
+      document.getElementById('resultsBreakdown').innerHTML =
+        `<div class="alert alert-error">Could not load review: ${formatError(e.detail)}</div>`;
+    }
+  }
+  function onAnswer() {
+    const total = questions.length;
+    let answered = 0;
+    for (const q of questions) {
+      if (q.question_type === 'objective') {
+        if (document.querySelector(`input[name="q${q.practice_question_id}"]:checked`)) answered++;
+      } else {
+        if (document.getElementById(`ans-${q.practice_question_id}`)?.value.trim()) answered++;
+      }
+    }
+    const pct = total > 0 ? Math.round((answered / total) * 100) : 0;
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressLabel').textContent = `${answered} / ${total} answered`;
+  }
+
+  
+  async function submitPractice() {
+    const alertBox = document.getElementById('questionsAlert');
+    alertBox.innerHTML = '';
+
+    
+    const unanswered = [];
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      if (q.question_type === 'objective') {
+        if (!document.querySelector(`input[name="q${q.practice_question_id}"]:checked`))
+          unanswered.push(i + 1);
+      } else {
+        if (!document.getElementById(`ans-${q.practice_question_id}`)?.value.trim())
+          unanswered.push(i + 1);
+      }
+    }
+    if (unanswered.length) {
+      showAlert(alertBox, 'error',
+        `Please answer all questions first. Missing: Q${unanswered.join(', Q')}.`);
+      return;
+    }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;margin:0 4px 0 0;display:inline-block;vertical-align:middle"></div> AI Evaluatingâ€¦';
+
+    
+    const answers = questions.map(q => {
+      if (q.question_type === 'objective') {
+        const checked = document.querySelector(`input[name="q${q.practice_question_id}"]:checked`);
+        return { practice_question_id: q.practice_question_id, selected_option_text: checked?.value || '' };
+      } else {
+        return { practice_question_id: q.practice_question_id,
+                 answer_text: document.getElementById(`ans-${q.practice_question_id}`)?.value?.trim() || '' };
+      }
+    });
+
+    try {
+      
+      await apiFetch(`/ai/practice/${currentAssessmentId}/submit`, {
+        method: 'POST',
+        body: JSON.stringify(answers)
+      });
+
+      
+      await apiFetch(`/ai/practice/${currentAssessmentId}/evaluate`, { method: 'POST' });
+
+      
+      const result = await apiFetch(`/ai/practice/${currentAssessmentId}/result`);
+
+      btn.disabled = true;
+      btn.textContent = 'Evaluated âœ“';
+      setTimeout(() => showResults(result), 600);
+    } catch (e) {
+      const errMsg = e.detail || e.message || 'Submission failed. Please try again.';
+      showAlert(alertBox, 'error', escapeHtml(errMsg));
+      btn.disabled = false;
+      btn.innerHTML = 'Submit &amp; Evaluate â†’';
+    }
+  }
+
+  
+  function showResults(result) {
+    document.getElementById('questionsSection').classList.add('hidden');
+    document.getElementById('resultsSection').classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    const score = result.total_marks;
+    const max   = result.max_marks;
+    const pct   = safePct(score, max);
+    const perf  = pct >= 90 ? ' Excellent!' : pct >= 75 ? ' Very Good' :
+                  pct >= 50 ? 'Good Effort' : ' Keep Practicing';
+    const color = pct >= 75 ? 'var(--success)' : pct >= 50 ? 'var(--accent)' : 'var(--danger)';
+
+   
+    const ringEl = document.getElementById('resultRingContainer');
+    const r = 28, circ = 2 * Math.PI * r;
+    const offset = circ - (pct / 100) * circ;
+    const ringColor = pct >= 75 ? 'var(--success)' : pct >= 50 ? 'var(--accent)' : 'var(--danger)';
+    ringEl.innerHTML = `
+      <svg viewBox="0 0 68 68" style="width:130px;height:130px">
+        <circle class="ring-bg" cx="34" cy="34" r="${r}"/>
+        <circle class="ring-fg" cx="34" cy="34" r="${r}"
+          stroke="${ringColor}"
+          stroke-dasharray="${circ.toFixed(2)}"
+          stroke-dashoffset="${offset.toFixed(2)}"
+          style="stroke-width:7;fill:none;stroke-linecap:round;transform-origin:center;
+                 transform:rotate(-90deg);transition:stroke-dashoffset .9s cubic-bezier(.4,0,.2,1);
+                 filter:drop-shadow(0 0 7px ${ringColor})"/>
+        <text class="score-text" x="34" y="34" style="font-size:1.3rem">${pct}%</text>
+      </svg>`;
+
+    document.getElementById('resultPerf').textContent = perf;
+    document.getElementById('resultSub').innerHTML =
+      `You scored <strong style="color:${color}">${score} / ${max}</strong> marks on <em>${escapeHtml(_subject)}</em>`;
+
+    document.getElementById('resultStats').innerHTML = `
+      <div class="stat-card"><div class="label">Score</div><div class="value accent">${pct}%</div></div>
+      <div class="stat-card"><div class="label">Questions</div><div class="value">${questions.length}</div></div>
+      <div class="stat-card"><div class="label">Marks</div><div class="value success">${score}</div></div>`;
+
+    
+    const breakdown = result.question_breakdown || [];
+    document.getElementById('resultsBreakdown').innerHTML = breakdown.map((r, i) => {
+      const isObj = r.question_type === 'objective';
+      const earned = r.marks_awarded ?? 0;
+      const max_q  = r.max_question_marks ?? 1;
+      const ok     = earned === max_q;
+      const badgeCls = ok ? 'success' : (earned > 0 ? 'accent' : 'danger');
+      const badgeTxt = isObj ? (ok ? 'âœ“' : 'âœ—') : `${earned}/${max_q}`;
+
+      let bodyHtml = `<p class="text-sm" style="font-weight:500;margin-bottom:.85rem">${escapeHtml(r.question_text)}</p>`;
+
+     if (isObj && r.options?.length) {
+        const correctText = (r.correct_answer || '').toLowerCase().trim();
+        bodyHtml += r.options.map(opt => {
+          const isCorrect  = opt.option_text.toLowerCase().trim() === correctText;
+          const isSelected = (r.selected_option_text || '').toLowerCase().trim() ===
+                             opt.option_text.toLowerCase().trim();
+          const cls = isCorrect ? 'option-correct' : (isSelected && !isCorrect ? 'option-wrong' : '');
+          return `<div class="option-label ${cls}" style="cursor:default;margin-bottom:.4rem">
+            <span>${escapeHtml(opt.option_text)}</span>
+            ${isCorrect ? '<span class="badge success" style="margin-left:auto">✓ Correct</span>' :
+              (isSelected && !isCorrect ? '<span class="badge danger" style="margin-left:auto">Your answer</span>' : '')}
+          </div>`;
+        }).join('');
+      }
+
+      if (!isObj && r.answer_text) {
+        bodyHtml += `
+          <div style="background:var(--surface2);border-radius:8px;padding:.85rem;margin-bottom:.75rem;
+                      border:1px solid var(--border)">
+            <div style="font-size:.68rem;font-weight:600;color:var(--muted);text-transform:uppercase;
+                        letter-spacing:.07em;margin-bottom:.4rem;font-family:'JetBrains Mono',monospace">Your Answer</div>
+            <p class="text-sm" style="white-space:pre-wrap">${escapeHtml(r.answer_text)}</p>
+          </div>`;
+      }
+
+      if (r.feedback) {
+        const pct2 = isObj ? (ok ? 100 : 0) : safePct(earned, max_q);
+        const fbCls = pct2 >= 70 ? 'success' : pct2 >= 40 ? 'accent' : 'danger';
+        bodyHtml += `
+          <div class="${isObj ? 'explanation-box' : 'ai-feedback-box'}">
+            ${!isObj ? `
+            <div class="ai-score-line">
+              <span class="text-muted text-sm">Marks Awarded</span>
+              <span class="ai-score-value">${earned}<span class="text-muted" style="font-size:.8rem;font-weight:400"> / ${max_q}</span></span>
+            </div>
+            <div class="progress-wrap" style="margin-bottom:.6rem">
+              <div class="progress-bar ${fbCls}" style="width:${pct2}%"></div>
+            </div>` : ''}
+            <p class="text-sm" style="color:var(--muted);white-space:pre-line">${escapeHtml(r.feedback)}</p>
+          </div>`;
+      }
+
+      return `
+        <div class="breakdown-card">
+          <div class="breakdown-header" id="bh-${i}" onclick="toggleBreakdown(${i})">
+            <div style="display:flex;align-items:center;gap:.65rem;min-width:0">
+              <span class="badge ${badgeCls}" style="flex-shrink:0">${badgeTxt}</span>
+              <span class="text-sm" style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                Q${i+1}: ${escapeHtml(r.question_text.length > 70 ? r.question_text.slice(0,70)+'â€¦' : r.question_text)}
+              </span>
+            </div>
+            <span class="breakdown-chevron">â–¼</span>
+          </div>
+          <div class="breakdown-body" id="bb-${i}">${bodyHtml}</div>
+        </div>`;
+    }).join('');
+  }
+
+  function toggleBreakdown(i) {
+    const header = document.getElementById(`bh-${i}`);
+    const body   = document.getElementById(`bb-${i}`);
+    if (!header || !body) return;
+    const open = body.classList.toggle('open');
+    header.classList.toggle('open', open);
+  }
+
+  function expandAll() {
+    const total = (result?.question_breakdown?.length) ?? questions.length;
+    for (let i = 0; i < total; i++) {
+      document.getElementById(`bb-${i}`)?.classList.add('open');
+      document.getElementById(`bh-${i}`)?.classList.add('open');
+    }
+  }
+</script>
+</body>
+</html>

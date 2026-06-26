@@ -15,18 +15,35 @@
     <p>A full record of your evaluated assessments.</p>
   </div>
 
-  <!-- Summary stats -->
-  <div class="stats-row" id="summaryStats" style="margin-bottom:1.75rem"></div>
-
-  <!-- Filter by assessment -->
-  <div style="display:flex;gap:.75rem;margin-bottom:1.5rem;align-items:center;flex-wrap:wrap">
-    <label style="text-transform:none;font-size:.875rem;color:var(--muted);margin:0">Filter by assessment:</label>
-    <select id="filterAssess" onchange="filterResults()" style="width:auto;min-width:180px">
-      <option value="">All assessments</option>
-    </select>
+  <div style="display:flex;gap:.5rem;margin-bottom:1.75rem;border-bottom:1px solid var(--border);padding-bottom:0">
+    <button id="tabAssess" onclick="switchTab('assess')"
+      style="padding:.6rem 1.25rem;background:none;border:none;border-bottom:2px solid var(--accent);
+             color:var(--text);font-weight:600;font-size:.9rem;cursor:pointer;margin-bottom:-1px">
+      Assessments
+    </button>
+    <button id="tabPractice" onclick="switchTab('practice')"
+      style="padding:.6rem 1.25rem;background:none;border:none;border-bottom:2px solid transparent;
+             color:var(--muted);font-weight:600;font-size:.9rem;cursor:pointer;margin-bottom:-1px">
+      ✦ AI Practice
+    </button>
+  </div>
+  
+  <div id="assessTab">
+    <div class="stats-row" id="summaryStats" style="margin-bottom:1.75rem"></div>
+    <div style="display:flex;gap:.75rem;margin-bottom:1.5rem;align-items:center;flex-wrap:wrap">
+      <label style="text-transform:none;font-size:.875rem;color:var(--muted);margin:0">Filter by assessment:</label>
+      <select id="filterAssess" onchange="filterResults()" style="width:auto;min-width:180px">
+        <option value="">All assessments</option>
+      </select>
+    </div>
+    <div id="resultsGrid"></div>
   </div>
 
-  <div id="resultsGrid"></div>
+  <!-- PRACTICE TAB -->
+  <div id="practiceTab" style="display:none">
+    <div class="stats-row" id="practiceStats" style="margin-bottom:1.75rem"></div>
+    <div id="practiceGrid"></div>
+  </div>
 </div>
 
 <script src="app.js"></script>
@@ -36,13 +53,28 @@
 
   let allResults = [];
 
+  // ── Tab switcher ─────────────────────────────────────────
+  function switchTab(tab) {
+    const isAssess = tab === 'assess';
+    document.getElementById('assessTab').style.display   = isAssess ? '' : 'none';
+    document.getElementById('practiceTab').style.display = isAssess ? 'none' : '';
+
+    document.getElementById('tabAssess').style.borderBottomColor  = isAssess ? 'var(--accent)' : 'transparent';
+    document.getElementById('tabAssess').style.color              = isAssess ? 'var(--text)' : 'var(--muted)';
+    document.getElementById('tabPractice').style.borderBottomColor = isAssess ? 'transparent' : 'var(--accent)';
+    document.getElementById('tabPractice').style.color             = isAssess ? 'var(--muted)' : 'var(--text)';
+  }
+
+  // ── Real assessments ─────────────────────────────────────
   async function loadResults() {
     const el = document.getElementById('resultsGrid');
     showLoading(el);
     try {
       allResults = await apiFetch('/results') || [];
-      if (!allResults.length) { showEmpty(el, '🏆', 'No results yet. Complete an assessment to see your scores!'); return; }
-
+      if (!allResults.length) {
+        showEmpty(el, '🏆', 'No results yet. Complete an assessment to see your scores!');
+        return;
+      }
       renderSummary(allResults);
       populateFilter(allResults);
       renderGrid(allResults);
@@ -53,10 +85,9 @@
 
   function renderSummary(results) {
     const el = document.getElementById('summaryStats');
-    const avg = results.reduce((s, r) => s + safePct(r.total_marks, r.max_marks), 0) / results.length;
+    const avg  = results.reduce((s, r) => s + safePct(r.total_marks, r.max_marks), 0) / results.length;
     const best = Math.max(...results.map(r => safePct(r.total_marks, r.max_marks)));
     const totalMarks = results.reduce((s, r) => s + r.total_marks, 0);
-
     el.innerHTML = `
       <div class="stat-card"><div class="label">Total Attempts</div><div class="value">${results.length}</div></div>
       <div class="stat-card"><div class="label">Average Score</div><div class="value accent">${Math.round(avg)}%</div></div>
@@ -94,9 +125,8 @@
   function renderGrid(results) {
     const el = document.getElementById('resultsGrid');
     if (!results.length) { showEmpty(el, '🔍', 'No results match this filter.'); return; }
-
     el.innerHTML = `<div class="card-grid">${results.map(r => {
-      const pct = safePct(r.total_marks, r.max_marks);
+      const pct   = safePct(r.total_marks, r.max_marks);
       const color = pct >= 75 ? 'success' : pct < 50 ? 'danger' : 'accent';
       return `
         <a href="feedback.html?submission_id=${r.submission_id}" style="text-decoration:none">
@@ -120,7 +150,64 @@
     }).join('')}</div>`;
   }
 
+  // ── Practice sessions ─────────────────────────────────────
+  async function loadPracticeResults() {
+    const el = document.getElementById('practiceGrid');
+    showLoading(el);
+    try {
+      const sessions = await apiFetch('/ai/practice') || [];
+      const evaluated = sessions.filter(s => s.status === 'Evaluated');
+
+      if (!evaluated.length) {
+        showEmpty(el, '✦', 'No practice sessions completed yet. Try AI Practice!');
+        return;
+      }
+
+      // Summary stats
+      const avg  = evaluated.reduce((s, r) => s + safePct(r.total_marks, r.max_marks), 0) / evaluated.length;
+      const best = Math.max(...evaluated.map(r => safePct(r.total_marks, r.max_marks)));
+      document.getElementById('practiceStats').innerHTML = `
+        <div class="stat-card"><div class="label">Sessions Done</div><div class="value">${evaluated.length}</div></div>
+        <div class="stat-card"><div class="label">Average Score</div><div class="value accent">${Math.round(avg)}%</div></div>
+        <div class="stat-card"><div class="label">Best Score</div><div class="value success">${best}%</div></div>
+        <div class="stat-card"><div class="label">Total Sessions</div><div class="value">${sessions.length}</div></div>
+      `;
+
+      el.innerHTML = `<div class="card-grid">${evaluated.map(r => {
+        const pct   = safePct(r.total_marks, r.max_marks);
+        const color = pct >= 75 ? 'success' : pct < 50 ? 'danger' : 'accent';
+        return `
+          <a href="practice.html?review=${r.practice_assessment_id}" style="text-decoration:none">
+            <div class="assessment-card" style="cursor:pointer">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem">
+                <div>
+                  <h3 style="margin-bottom:.35rem">${escapeHtml(r.title)}</h3>
+                  <div class="meta-row" style="margin-top:.25rem">
+                    <span class="badge">${escapeHtml(r.subject)}</span>
+                    <span class="badge info">${escapeHtml(r.topic)}</span>
+                  </div>
+                  <div class="meta-row" style="margin-top:.4rem">
+                    <span class="badge ${color}">${pct}%</span>
+                    <span class="badge">${r.total_marks} / ${r.max_marks} marks</span>
+                  </div>
+                  <p class="text-muted text-sm" style="margin-top:.6rem">${escapeHtml(r.overall_feedback)}</p>
+                </div>
+                ${buildRing(pct)}
+              </div>
+              <div class="progress-wrap mt-2">
+                <div class="progress-bar ${pct>=75?'success':pct<50?'danger':''}" style="width:${pct}%"></div>
+              </div>
+            </div>
+          </a>`;
+      }).join('')}</div>`;
+    } catch (e) {
+      showAlert(el, 'error', 'Could not load practice results: ' + formatError(e.detail));
+    }
+  }
+
+  // Load both on page load
   loadResults();
+  loadPracticeResults();
 </script>
 </body>
 </html>
