@@ -763,7 +763,6 @@ input[type=range]::-moz-range-thumb {
   .count-num { font-size: 1.3rem; }
 }
 
-/* ── Practice page readability fixes ── */
 .breakdown-card {
   font-size: 1rem;
 }
@@ -775,7 +774,7 @@ input[type=range]::-moz-range-thumb {
 
 .breakdown-header .text-sm {
   font-size: .95rem !important;
-  white-space: normal !important;    /* stop truncating question text */
+  white-space: normal !important;    
 }
 
 .breakdown-body {

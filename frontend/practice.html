@@ -35,7 +35,7 @@
         <div class="form-group">
           <label for="subjectInput">Subject</label>
           <input type="text" id="subjectInput"
-            placeholder="e.g. Mathematics, Biology, World Historyâ€¦"
+            placeholder="e.g. Mathematics, Biology, World History…"
             autocomplete="off" />
         </div>
 
@@ -98,7 +98,7 @@
     <div id="questionsAlert" style="margin-bottom:1rem"></div>
     <div style="text-align:center;padding-bottom:1rem">
       <button class="btn btn-primary" id="submitBtn" onclick="submitPractice()" style="min-width:200px">
-        Submit &amp; Evaluate â†’
+        Submit &amp; Evaluate →
       </button>
     </div>
   </div>
@@ -182,7 +182,7 @@
 
     const btn = document.getElementById('generateBtn');
     btn.disabled = true;
-    btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;margin:0 4px 0 0;display:inline-block;vertical-align:middle"></div> Generatingâ€¦';
+    btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;margin:0 4px 0 0;display:inline-block;vertical-align:middle"></div> Generating…';
 
     try {
       const data = await apiFetch('/ai/practice/generate', {
@@ -212,7 +212,7 @@
     document.getElementById('resultsSection').classList.add('hidden');
     document.getElementById('questionsAlert').innerHTML = '';
     document.getElementById('submitBtn').disabled = false;
-    document.getElementById('submitBtn').innerHTML = 'Submit &amp; Evaluate â†’';
+    document.getElementById('submitBtn').innerHTML = 'Submit &amp; Evaluate →';
 
     const total = questions.length;
     document.getElementById('progressLabel').textContent = `0 / ${total} answered`;
@@ -243,7 +243,7 @@
             <div class="q-num">Q${i + 1} Â· SUBJECTIVE Â· ${q.marks} marks</div>
             <div class="q-text">${escapeHtml(q.question_text)}</div>
             <textarea id="ans-${q.practice_question_id}" rows="4"
-              placeholder="Write your answer hereâ€¦" oninput="onAnswer()"
+              placeholder="Write your answer here…" oninput="onAnswer()"
               style="margin-top:.5rem"></textarea>
           </div>`;
       }
@@ -325,7 +325,7 @@
 
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
-    btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;margin:0 4px 0 0;display:inline-block;vertical-align:middle"></div> AI Evaluatingâ€¦';
+    btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;margin:0 4px 0 0;display:inline-block;vertical-align:middle"></div> AI Evaluating…';
 
     
     const answers = questions.map(q => {
@@ -352,13 +352,13 @@
       const result = await apiFetch(`/ai/practice/${currentAssessmentId}/result`);
 
       btn.disabled = true;
-      btn.textContent = 'Evaluated âœ“';
+      btn.textContent = 'Evaluated ✓';
       setTimeout(() => showResults(result), 600);
     } catch (e) {
       const errMsg = e.detail || e.message || 'Submission failed. Please try again.';
       showAlert(alertBox, 'error', escapeHtml(errMsg));
       btn.disabled = false;
-      btn.innerHTML = 'Submit &amp; Evaluate â†’';
+      btn.innerHTML = 'Submit &amp; Evaluate →';
     }
   }
 
@@ -410,7 +410,7 @@
       const max_q  = r.max_question_marks ?? 1;
       const ok     = earned === max_q;
       const badgeCls = ok ? 'success' : (earned > 0 ? 'accent' : 'danger');
-      const badgeTxt = isObj ? (ok ? 'âœ“' : 'âœ—') : `${earned}/${max_q}`;
+      const badgeTxt = isObj ? (ok ? '✓' : '✗') : `${earned}/${max_q}`;
 
       let bodyHtml = `<p class="text-sm" style="font-weight:500;margin-bottom:.85rem">${escapeHtml(r.question_text)}</p>`;
 
@@ -462,10 +462,10 @@
             <div style="display:flex;align-items:center;gap:.65rem;min-width:0">
               <span class="badge ${badgeCls}" style="flex-shrink:0">${badgeTxt}</span>
               <span class="text-sm" style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                Q${i+1}: ${escapeHtml(r.question_text.length > 70 ? r.question_text.slice(0,70)+'â€¦' : r.question_text)}
+                Q${i+1}: ${escapeHtml(r.question_text.length > 70 ? r.question_text.slice(0,70)+'…' : r.question_text)}
               </span>
             </div>
-            <span class="breakdown-chevron">â–¼</span>
+            <span class="breakdown-chevron">▼</span>
           </div>
           <div class="breakdown-body" id="bb-${i}">${bodyHtml}</div>
         </div>`;
