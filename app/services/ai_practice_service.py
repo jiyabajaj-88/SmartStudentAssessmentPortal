@@ -9,7 +9,7 @@ The router only validates requests and calls these functions.
 import os
 import json
 import re
-
+from app.services.weak_topic_service import detect_and_save_weak_topics
 from psycopg2.extras import RealDictCursor
 from fastapi import HTTPException
 from google import genai
@@ -148,14 +148,29 @@ Hard rules:
         assessment = dict(cur.fetchone())
         pa_id = assessment["practice_assessment_id"]
 
+        
+        topic_row = cur.fetchone()
+        question_topic_id = topic_row["topic_id"] if topic_row else None
         saved_questions = []
         for order, q in enumerate(questions_data):
             cur.execute(
                 """
+                SELECT topic_id FROM topics
+                WHERE LOWER(subject) = LOWER(%s)
+                AND LOWER(name) = LOWER(%s)
+                LIMIT 1
+                """,
+                (subject, topic),
+            )
+            topic_row = cur.fetchone()
+            question_topic_id = topic_row["topic_id"] if topic_row else None
+
+            cur.execute(
+                """
                 INSERT INTO practice_questions
                     (practice_assessment_id, question_text, question_type,
-                     marks, correct_answer, options, display_order)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                     marks, correct_answer, options, display_order, topic_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING practice_question_id, question_text, question_type,
                           marks, display_order
                 """,
@@ -167,6 +182,7 @@ Hard rules:
                     q.get("correct_answer", ""),
                     json.dumps(q.get("options", [])),
                     order,
+                    question_topic_id,
                 ),
             )
             question = dict(cur.fetchone())
@@ -409,6 +425,9 @@ def evaluate_submission(practice_assessment_id: int, student_id: int) -> dict:
             (practice_assessment_id,),
         )
         conn.commit()
+
+        detect_and_save_weak_topics(practice_assessment_id, student_id)
+
 
         return {
             "practice_assessment_id": practice_assessment_id,

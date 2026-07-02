@@ -52,6 +52,7 @@ function renderNav(activePage) {
     { href: 'practice.html',    label: '✦ AI Practice', ai: true },
     { href: 'submissions.html', label: 'Submissions'  },
     { href: 'results.html',     label: 'Results'      },
+    { href: 'chatbot.html', label: '✦ AI Tutor', ai: true },
   ];
 
   const linksHTML = pages.map(p =>

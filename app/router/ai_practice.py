@@ -1,10 +1,3 @@
-"""
-app/router/ai_practice.py
-
-Thin router — validates requests, delegates to the service layer.
-No Gemini calls, no prompts, no DB cursors here.
-"""
-
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import Optional
@@ -15,7 +8,7 @@ from app.services import ai_practice_service as svc
 router = APIRouter(prefix="/ai", tags=["ai"])
 
 
-# ── Request schemas ────────────────────────────────────────────────────────────
+
 
 class GenerateRequest(BaseModel):
     topic: str
@@ -28,7 +21,7 @@ class AnswerSubmit(BaseModel):
     selected_option_text: Optional[str] = None  # objective
 
 
-# ── Endpoints ──────────────────────────────────────────────────────────────────
+
 
 @router.post("/practice/generate")
 def generate_practice(

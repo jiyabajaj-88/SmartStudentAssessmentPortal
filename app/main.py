@@ -7,6 +7,10 @@ from app.schemas import StudentResponse
 from app.services.student_service import get_student_by_id
 from app.dependencies import get_current_student
 
+from app.router import chatbot
+
+
+
 app = FastAPI()
 
 # Middleware must be added before routers
@@ -31,10 +35,9 @@ app.include_router(submissions.router)
 app.include_router(answers.router)
 app.include_router(results.router)
 app.include_router(ai_practice.router)
+app.include_router(chatbot.router)
 
 
-
-# BUG 6 FIX: Added authentication + null check for missing student
 @app.get("/students/{student_id}", response_model=StudentResponse)
 def student(student_id: int, current_student=Depends(get_current_student)):
     result = get_student_by_id(student_id)
