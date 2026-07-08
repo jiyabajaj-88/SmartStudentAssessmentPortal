@@ -65,7 +65,8 @@ def call_gemini(prompt: str) -> str:
         try:
             response = _client.models.generate_content(model=model, contents=prompt)
             return response.text.strip()
-        except Exception:
+        except Exception as e:
+            print(f"Gemini error ({model}): {e}")  # add this line
             continue
     raise HTTPException(status_code=502, detail="Gemini API unavailable. Please try again.")
 
